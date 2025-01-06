@@ -14,8 +14,6 @@ from typing import IO
 from tqdm import tqdm
 from glob import glob
 import pandas as pd
-import argparse
-import shutil
 import os
 from datetime import datetime
 

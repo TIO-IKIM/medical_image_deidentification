@@ -9,6 +9,7 @@ from dicom_deidentification import DicomDeidentifier
 from text_detection import TextRemoval
 from wsi_deidentification import WSIDeidentifier
 from twix_deidentification import anonymize_twix
+from twix_skullstrip import Inference as TwixInference
 import torch
 import os
 import logging
@@ -36,16 +37,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "-i",
         "--input",
-        required=False,
-        default=None,
+        default="/Users/moritzrempe/Desktop/Raw_MRI",
         help="Path to the input data.",
     )
     parser.add_argument(
         "-o",
         "--output",
         type=str,
-        required=False,
-        default=None,
+        default="/Users/moritzrempe/Desktop/twix_test",
         help="Path to save the output data.",
     )
     parser.add_argument(
@@ -71,8 +70,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-tw",
         "--twix",
-        required=False,
-        default=False,
+        default=True,
         action=argparse.BooleanOptionalAction,
     )
     parser.add_argument(
@@ -159,8 +157,13 @@ if __name__ == "__main__":
 
     if args.twix:
         anonymize_twix(_input, args.output)
+        twix_skullstrip = TwixInference(
+            output_path=args.output, gpu=args.gpu, skullstrip=True, verbose=args.verbose
+        )
+        twix_skullstrip(_input)
         _input = _out
 
     if args.text_removal:
         txt_removal = TextRemoval()
         txt_removal(_input)
+    

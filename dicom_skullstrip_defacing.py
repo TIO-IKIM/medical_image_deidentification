@@ -8,6 +8,7 @@ import numpy as np
 from torchvision.transforms import v2
 import nibabel as nib
 import time
+from torchvision.transforms.functional import InterpolationMode
 
 logging.basicConfig(level=logging.INFO)
 
@@ -44,8 +45,7 @@ class Inference:
             self.device = torch.device("cpu")
         else:
             self.device = torch.device(
-                #f"cuda:{gpu}" if torch.cuda.is_available() else "cpu"
-                "cpu"
+                f"cuda:{gpu}" if torch.cuda.is_available() else "cpu"
             )
 
     def __call__(
