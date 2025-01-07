@@ -3,13 +3,15 @@ import torch
 import logging
 from pathlib import Path
 from tqdm import tqdm
-from dataset import get_inference_loader, resample, dcm2nifti, nifti2dcm
 import numpy as np
-from torchvision.transforms import v2
-import nibabel as nib
+import torchvision.transforms as T
 import time
 import twixtools
 from glob import glob
+from utils.fourier import ifft, fft
+from sigpy import mri as mr
+import sigpy as sp
+import nibabel as nib
 
 logging.basicConfig(level=logging.INFO)
 
@@ -43,6 +45,7 @@ class Inference:
             self.device = torch.device(
                 f"cuda:{gpu}" if torch.cuda.is_available() else "cpu"
             )
+        self.resize = T.Resize((256, 256))
 
     def __call__(
             self,
@@ -57,14 +60,58 @@ class Inference:
         self.input_path = input_path
         self.run()
         
+    def espirit_combine(self, kspace, mps):    
+        """
+        Combines multi-channel k-space using
+        explicit spatial coil-sensitivity maps.
+
+            Parameters:
+                kspace (ndarray): raw kspace with channels as first dimension
+                mps (ndarray): coil sensitivity maps
+
+            Returns
+                combined kspace (nd-array)
+        """
+        
+        # do FFT (k-space --> images space)
+        img = sp.ifft(kspace, axes=(1, 2))
+
+        # define coil sensitivity operator
+        C = sp.linop.Multiply(img.shape[1:], mps)                    
+            
+        # coil-combine images and compute combined k-space
+        finalImage = C.H * img
+
+        # do FFT (image --> k-space)    
+        finalKspace = sp.fft(finalImage, axes=(0, 1))
+
+        return finalKspace
+        
     def load_twix(self, filename: str) -> None:
+        """
+        Reads Siemens Raw Data (TWIX) files.
+
+            Parameters:
+                fname (str): File Name
+
+            Returns
+                kspace (nd-array): raw k-space data
+
+        """
+
+        # map the twix data to twix_array objects
         mapped = twixtools.map_twix(filename)
-    
+        
+        #  step 1: load image data
         im_data = mapped[-1]['image']
         
+        # the twix_array object makes it easy to remove the 2x oversampling in read direction
         im_data.flags['remove_os'] = True
 
-        self.kspace = im_data[:]
+        # read the data (array-slicing is also supported)
+        self.kspace = im_data[:].squeeze()
+        
+        self.kspace = np.swapaxes(self.kspace, 1, 2)
 
     def run(self) -> None:
 
@@ -81,15 +128,31 @@ class Inference:
 
         for file in tqdm(glob(f"{self.input_path}/*.dat"), desc="Inference (Batch)"):
             start_time = time.time()
+            try:
+                self.load_twix(file)
+            except:
+                logging.error(f"Could not load file: {file}")
+                continue
+            
+            pred_volume = []
+            for slc in range(self.kspace.shape[0]):
+                mps = mr.app.EspiritCalib(self.kspace[slc], 32,  show_pbar=False).run()
+                kspace_slc = self.espirit_combine(self.kspace[slc], mps)
+                kspace_slc = torch.tensor(kspace_slc[None, None, ...]).to(self.device)
+                kspace_slc_ifft = ifft(kspace_slc)
+                kspace_slc = fft(self.resize(kspace_slc_ifft.real) + 1j*self.resize(kspace_slc_ifft.imag))
+                kspace_slc /= kspace_slc.std()
 
-            self.load_twix(file)
-            self.kspace.to(self.device)
-            self.kspace = self.kspace[None, None, ...]
+                with torch.no_grad():
+                    pred = model(kspace_slc)
 
-            with torch.no_grad():
-                pred = model(self.kspace)
+                pred = pred.detach()
+                pred_volume.append(pred.cpu().numpy())
+            
+            pred_volume = np.array(pred_volume)
 
-            pred = pred.detach()
+            img = nib.Nifti1Image(pred_volume, np.eye(4))
+            nib.save(img, f"{self.output_path}/{Path(file).stem}.nii.gz")
 
             end_time = time.time()
 

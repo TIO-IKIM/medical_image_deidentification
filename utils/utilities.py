@@ -3,6 +3,7 @@ import torch
 import functools
 import time
 import logging
+import torch.nn.functional as F
 from prettytable import PrettyTable
 
 def count_parameters(model: torch.nn.Module) -> tuple[PrettyTable, int]:
@@ -45,3 +46,30 @@ def timer(func):
         return value
 
     return wrapper_timer
+
+def padding(pooled_input, original):
+    """Pad a pooled input tensor to match the size of an original tensor.
+
+    This function pads the 'pooled_input' tensor to match the spatial dimensions
+    (height and width) of the 'original' tensor. It calculates the amount of padding
+    required on each side and applies it symmetrically.
+
+    Args:
+        pooled_input (torch.Tensor): The pooled input tensor to be padded.
+        original (torch.Tensor): The original tensor whose spatial dimensions
+            the 'pooled_input' tensor should match.
+
+    Returns:
+        torch.Tensor: The padded 'pooled_input' tensor with the same spatial
+        dimensions as the 'original' tensor.
+    """
+
+    pad_h = original.size(2) - pooled_input.size(2)
+    pad_w = original.size(3) - pooled_input.size(3)
+    pad_h_top = pad_h // 2
+    pad_h_bottom = pad_h - pad_h_top
+    pad_w_left = pad_w // 2
+    pad_w_right = pad_w - pad_w_left
+    padded = F.pad(pooled_input, (pad_w_left, pad_w_right, pad_h_top, pad_h_bottom))
+
+    return padded

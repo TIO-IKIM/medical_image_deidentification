@@ -37,7 +37,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-i",
         "--input",
-        default="/Users/moritzrempe/Desktop/Raw_MRI",
+        default="/Users/moritzrempe/Desktop/anon_test",
         help="Path to the input data.",
     )
     parser.add_argument(
@@ -156,7 +156,7 @@ if __name__ == "__main__":
         _input = _out
 
     if args.twix:
-        anonymize_twix(_input, args.output)
+        #anonymize_twix(_input, args.output)
         twix_skullstrip = TwixInference(
             output_path=args.output, gpu=args.gpu, skullstrip=True, verbose=args.verbose
         )
