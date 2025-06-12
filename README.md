@@ -99,14 +99,13 @@ options:
 
 If you use our tool in your work, please cite us with the following BibTeX entry.
 ```latex
-@misc{rempe2024deidentificationmedicalimagingdata,
-      title={De-Identification of Medical Imaging Data: A Comprehensive Tool for Ensuring Patient Privacy}, 
-      author={Moritz Rempe and Lukas Heine and Constantin Seibold and Fabian Hörst and Jens Kleesiek},
-      year={2024},
-      eprint={2410.12402},
-      archivePrefix={arXiv},
-      primaryClass={eess.IV},
-      url={https://arxiv.org/abs/2410.12402}, 
+@article{rempe2025identification,
+  title={De-identification of medical imaging data: a comprehensive tool for ensuring patient privacy},
+  author={Rempe, Moritz and Heine, Lukas and Seibold, Constantin and H{\"o}rst, Fabian and Kleesiek, Jens},
+  journal={European Radiology},
+  pages={1--10},
+  year={2025},
+  publisher={Springer}
 }
 ```
 
