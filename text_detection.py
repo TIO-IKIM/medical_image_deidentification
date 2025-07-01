@@ -31,12 +31,13 @@ class TextRemoval:
         os.makedirs(self.output_path, exist_ok=True)
 
     @staticmethod
-    def predict(img: np.array) -> np.array:
+    def predict(img: np.array, img_orig: np.array = None) -> np.array:
         """
         Apply text removal algorithm (tesseract) to an image.
 
         Args:
             img (np.array): Input image as a NumPy array.
+            img_orig (np.array, optional): Original image to use for reference. Defaults to None.
 
         Returns:
             np.array: Image with text removed.
@@ -48,8 +49,8 @@ class TextRemoval:
         height, width = img.shape[:2]
         left = int(width / 4)
         top = int(height / 4)
-        right = int(width * 3 / 4)
-        bottom = int(height * 3 / 4)
+        right = int(width/ 4)
+        bottom = int(height / 4)
 
         img_covered = cv2.rectangle(
             img.copy(), (left, top), (right, bottom), (255, 255, 255), -1
@@ -63,7 +64,7 @@ class TextRemoval:
         ):
             if right - left < threshold:
                 img = cv2.rectangle(
-                    img,
+                    img_orig if img_orig is not None else img,
                     (left, height - bottom),
                     (right, height - top),
                     (255, 255, 255),
@@ -119,7 +120,10 @@ class TextRemoval:
                     base_fn = filepath[:-5]
                 case "dcm":
                     dcm = pydicom.dcmread(filepath, force=True)
-                    img = dcm.pixel_array
+                    img_orig = dcm.pixel_array
+                    img = np.array(
+                        Image.fromarray(img_orig).convert("RGB")
+                    )
                     base_fn = filepath[:-4]
                 case "nii":
                     nifti = nib.load(filepath)
@@ -137,8 +141,8 @@ class TextRemoval:
                     raise NotImplementedError(
                         f"File ending {file_ending} not compatible, must be .dcm, .png, .jpg or .jpeg"
                     )
-
-            img = self.predict(img=img)
+                    
+            img = self.predict(img=img, img_orig=img_orig if 'img_orig' in locals() else None)
 
             self.output_path = os.path.join(
                 self.output_path, f"{Path(base_fn).name}_text_removed"
