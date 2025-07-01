@@ -78,15 +78,26 @@ def create_affine(sorted_dicoms: list) -> np.matrix:
     dicom_first = pydicom.dcmread(sorted_dicoms[0])
     dicom_last = pydicom.dcmread(sorted_dicoms[-1])
     # Create affine matrix (http://nipy.sourceforge.net/nibabel/dicom/dicom_orientation.html#dicom-slice-affine)
-    image_orient1 = np.array(dicom_first.ImageOrientationPatient)[0:3]
-    image_orient2 = np.array(dicom_first.ImageOrientationPatient)[3:6]
+    # Try to get ImageOrientationPatient, otherwise use default orientation
+    if hasattr(dicom_first, "ImageOrientationPatient"):
+        image_orient1 = np.array(dicom_first.ImageOrientationPatient)[0:3]
+        image_orient2 = np.array(dicom_first.ImageOrientationPatient)[3:6]
+        image_pos = np.array(dicom_first.ImagePositionPatient)
+        last_image_pos = np.array(dicom_last.ImagePositionPatient)
+    else:
+        logging.warning(
+            "ImageOrientationPatient not found in DICOM metadata. Using default orientation."
+        )
+        # Default to axial orientation if not present
+        image_orient1 = np.array([1, 0, 0])
+        image_orient2 = np.array([0, 1, 0])
+        image_pos = np.array([0, 0, 0])
+        last_image_pos = np.array([0, 0, 0])
+        
 
     delta_r = float(dicom_first.PixelSpacing[0])
     delta_c = float(dicom_first.PixelSpacing[1])
 
-    image_pos = np.array(dicom_first.ImagePositionPatient)
-
-    last_image_pos = np.array(dicom_last.ImagePositionPatient)
 
     if len(sorted_dicoms) == 1:
         # Single slice
