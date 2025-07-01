@@ -162,5 +162,5 @@ if __name__ == "__main__":
         _input = _out
 
     if args.text_removal:
-        txt_removal = TextRemoval()
+        txt_removal = TextRemoval(output_path=args.output, verbose=args.verbose)
         txt_removal(_input)
