@@ -33,7 +33,7 @@ This tool combines multiple anonymization steps, including metadata deidentifica
 
 ## Getting started
 
-You can install the anonymization tool directly via pip (recommended), by cloning this repository or via Docker. 
+You can install the anonymization tool directly via pip (recommended) or via Docker. 
 
 ### Installation via pip
 
@@ -72,7 +72,7 @@ For the installation and execution of the docker image, you must have [Docker](h
        python3 deidentify.py [your flags]
 
 ## Usage
-**Installed via pip - De-Identification CLI (recommended)**
+**De-Identification CLI**
 ```
 usage: mede-deidentify [-h] [-v | --verbose | --no-verbose] [-t | --text-removal | --no-text-removal] [-i INPUT]
                                     [-o OUTPUT] [--gpu GPU] [-s | --skull_strip | --no-skull_strip] [-de | --deface | --no-deface]
@@ -98,37 +98,6 @@ options:
                         Which DICOM deidentification profile(s) to apply. (default None)
 ```
 
-
-
-
-**Cloned from GitHub or Docker - De-Identification CLI**
-
-This command has to be executed from withing the `mede` folder.
-
-```
-usage: deidentify.py [-h] [-v | --verbose | --no-verbose] [-t | --text-removal | --no-text-removal] [-i INPUT]
-                                    [-o OUTPUT] [--gpu GPU] [-s | --skull_strip | --no-skull_strip] [-de | --deface | --no-deface]
-                                    [-tw | --twix | --no-twix] [-p PROCESSES]
-                                    [-d {basicProfile,cleanDescOpt,cleanGraphOpt,cleanStructContOpt,rtnDevIdOpt,rtnInstIdOpt,rtnLongFullDatesOpt,rtnLongModifDatesOpt,rtnPatCharsOpt,rtnSafePrivOpt,rtnUIDsOpt} [{basicProfile,cleanDescOpt,cleanGraphOpt,cleanStructContOpt,rtnDevIdOpt,rtnInstIdOpt,rtnLongFullDatesOpt,rtnLongModifDatesOpt,rtnPatCharsOpt,rtnSafePrivOpt,rtnUIDsOpt} ...]]
-
-options:
-  -h, --help            show this help message and exit
-  -v, --verbose, --no-verbose
-  -t, --text-removal, --no-text-removal
-  -i INPUT, --input INPUT
-                        Path to the input data.
-  -o OUTPUT, --output OUTPUT
-                        Path to save the output data.
-  --gpu GPU             GPU device number. (default 0)
-  -s, --skull_strip, --no-skull_strip
-  -de, --deface, --no-deface
-  -tw, --twix, --no-twix
-  -w, --wsi, --no-wsi
-  -p PROCESSES, --processes PROCESSES
-                        Number of processes to use for multiprocessing.
-  -d {basicProfile,cleanDescOpt,cleanGraphOpt,cleanStructContOpt,rtnDevIdOpt,rtnInstIdOpt,rtnLongFullDatesOpt,rtnLongModifDatesOpt,rtnPatCharsOpt,rtnSafePrivOpt,rtnUIDsOpt} [{basicProfile,cleanDescOpt,cleanGraphOpt,cleanStructContOpt,rtnDevIdOpt,rtnInstIdOpt,rtnLongFullDatesOpt,rtnLongModifDatesOpt,rtnPatCharsOpt,rtnSafePrivOpt,rtnUIDsOpt} ...], --deidentification-profile {basicProfile,cleanDescOpt,cleanGraphOpt,cleanStructContOpt,rtnDevIdOpt,rtnInstIdOpt,rtnLongFullDatesOpt,rtnLongModifDatesOpt,rtnPatCharsOpt,rtnSafePrivOpt,rtnUIDsOpt} [{basicProfile,cleanDescOpt,cleanGraphOpt,cleanStructContOpt,rtnDevIdOpt,rtnInstIdOpt,rtnLongFullDatesOpt,rtnLongModifDatesOpt,rtnPatCharsOpt,rtnSafePrivOpt,rtnUIDsOpt} ...]
-                        Which DICOM deidentification profile(s) to apply. (default None)
-```
 
 ## Citation
 
