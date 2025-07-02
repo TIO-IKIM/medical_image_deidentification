@@ -2,7 +2,7 @@
 import torch.nn as nn
 import torch
 import timm
-from midi.mednext.MedNextV1 import MedNeXt
+from mede.mednext.MedNextV1 import MedNeXt
 
 
 class ConvNext(nn.Module):

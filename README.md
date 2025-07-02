@@ -5,11 +5,14 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 ![Open Source Love][0c]
 [![Docker](https://img.shields.io/badge/-Docker-46a2f1?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/r/morrempe/hold)
+![PyPI - Version](https://img.shields.io/pypi/v/mede?color=blue&label=mede&logo=pypi&logoColor=white)
+<div align="center">
 
 [0c]: https://badges.frapsoft.com/os/v2/open-source.svg?v=103
 
+>[!NOTE]
+>We released a pip package for easy installation
 
-<div align="center">
 
 [Getting started](#getting-started) • [Usage](#usage) • [Citation](#citation)
 
@@ -32,24 +35,24 @@ This tool combines multiple anonymization steps, including metadata deidentifica
 
 You can install the anonymization tool either directly via git, by cloning this repository or via Docker. 
 
-### Installation via Git
+### Installation via pip
 
-1. Clone repository:
-   
-       git clone https://github.com/TIO-IKIM/medical_image_deidentification.git
+Our tool is available via pip. You can install it with the following command:
+```
+pip install mede
+```
 
-2. Create a conda environment with Python version 3.12.4 and install the necessary dependencies:
-   
-       conda create -n my_env python=3.12.4 --file requirements.txt
-    In case of installation issues with conda, use pip install -r requirements.txt to install the dependecies.
-
-3. Activate your new environment:
-
-       conda activate my_env
-
-4. Run the script with the corresponding cli parameter, e.g.:
-
-       python3 deidentify.py [your flags]
+#### Additional dependencies for text removal
+If you want to use the text removal feature, you also need to install Google's Tesseract OCR engine. You can find the installation instructions for your operating system [here](https://tesseract-ocr.github.io/tessdoc/Installation.html).
+On Ubuntu, you can install it via 
+```bash
+sudo apt install tesseract-ocr
+sudo apt install libtesseract-dev
+```
+On MacOS, you can install it via Homebrew:
+```bash
+brew install tesseract
+```
 
 ### Installation via Docker
 Alternatively this tool is distributed via docker. You can find the docker images [here](https://hub.docker.com/r/morrempe/hold). The docker image is available for amd64 and arm64 platforms.

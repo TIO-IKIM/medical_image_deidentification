@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
 
-from midi.mednext.blocks import *
+from mede.mednext.blocks import *
 
 class MedNeXt(nn.Module):
 

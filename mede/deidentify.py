@@ -4,11 +4,11 @@ Anonymize anything (medical)
 Authors: Moritz Rempe & Lukas Heine
 """
 import argparse
-from midi.dicom_skullstrip_defacing import Inference
-from midi.dicom_deidentification import DicomDeidentifier
-from midi.text_detection import TextRemoval
-from midi.wsi_deidentification import WSIDeidentifier
-from midi.twix_deidentification import anonymize_twix
+from mede.dicom_skullstrip_defacing import Inference
+from mede.dicom_deidentification import DicomDeidentifier
+from mede.text_detection import TextRemoval
+from mede.wsi_deidentification import WSIDeidentifier
+from mede.twix_deidentification import anonymize_twix
 import torch
 import logging
 

@@ -20,6 +20,7 @@ from glob import glob
 import logging
 import multiprocessing as mp
 from typing import List
+import importlib.resources
 
 
 class DicomDeidentifier:
@@ -40,7 +41,7 @@ class DicomDeidentifier:
         """
 
         recipe = [
-            f'{os.path.join("./dicom_deid/deid_options", option)}.dicom'
+            f"{importlib.resources.files('mede')}/dicom_deid/deid_options/{option}.dicom"
             for option in recipe
         ]
         self.recipe: DeidRecipe = DeidRecipe(recipe)

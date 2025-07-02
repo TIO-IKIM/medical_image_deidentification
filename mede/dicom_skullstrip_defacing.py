@@ -3,13 +3,14 @@ import torch
 import logging
 from pathlib import Path
 from tqdm import tqdm
-from midi.dataset import get_inference_loader, resample, dcm2nifti, nifti2dcm
-from midi.model import Mednext
+from mede.dataset import get_inference_loader, resample, dcm2nifti, nifti2dcm
+from mede.model import Mednext
 import numpy as np
 from torchvision.transforms import v2
 import nibabel as nib
 import time
 from torchvision.transforms.functional import InterpolationMode
+import importlib.resources
 
 logging.basicConfig(level=logging.INFO)
 
@@ -36,10 +37,10 @@ class Inference:
         self.input_path = None
         self.output_path = output_path
         if deface:
-            self.model_path = "midi/model/mednext_deface.pth"
+            self.model_path = f"{importlib.resources.files('mede')}/models/mednext_deface.pth"
             self.stem = "deface"  # stem for output file
         elif skullstrip:
-            self.model_path = "midi/model/mednext_skullstrip.pth"
+            self.model_path = f"{importlib.resources.files('mede')}/models/mednext_skullstrip.pth"
             self.stem = "skullstrip"  # stem for output file
         self._verbose = verbose if verbose is not None else False
         if gpu is None:
