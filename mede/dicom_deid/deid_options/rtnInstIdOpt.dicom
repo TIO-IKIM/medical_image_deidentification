@@ -1,0 +1,12 @@
+FORMAT dicom
+%header
+KEEP ClinicalTrialCoordinatingCenterName
+KEEP ClinicalTrialProtocolEthicsCommitteeName
+KEEP ClinicalTrialSiteID
+KEEP ClinicalTrialSiteName
+KEEP InstitutionAddress
+KEEP InstitutionalDepartmentName
+KEEP InstitutionalDepartmentTypeCodeSequence
+KEEP InstitutionCodeSequence
+KEEP InstitutionName
+KEEP SourceOfPreviousValues

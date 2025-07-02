@@ -1,0 +1,59 @@
+FORMAT dicom
+%header
+KEEP BeamHoldTransitionDateTime
+KEEP CalibrationDate
+KEEP CalibrationDateTime
+KEEP CalibrationTime
+KEEP CassetteID
+KEEP DateOfInstallation
+KEEP DateOfLastCalibration
+KEEP DateOfLastDetectorCalibration
+KEEP DateOfManufacture
+KEEP DateTimeOfLastCalibration
+REPLACE DestinationAE ''
+KEEP DetectorID
+KEEP DeviceDescription
+KEEP DeviceLabel
+KEEP DeviceSerialNumber
+KEEP DeviceUID
+KEEP GantryID
+KEEP GeneratorID
+KEEP LensMake
+KEEP LensModel
+KEEP LensSerialNumber
+KEEP LensSpecification
+KEEP ManufacturerDeviceClassUID
+KEEP ManufacturerDeviceIdentifier
+KEEP ModifyingDeviceID
+KEEP ModifyingSystem
+REPLACE NetworkID ''
+REPLACE Originator ''
+REPLACE PerformedStationAETitle ''
+KEEP PerformedStationGeographicLocationCodeSequence
+KEEP PerformedStationName
+KEEP PerformedStationNameCodeSequence
+KEEP PlateID
+REPLACE ReceivingAE ''
+REPLACE RequestingAE ''
+REPLACE RetrieveAETitle ''
+KEEP ScheduledProcedureStepLocation
+REPLACE ScheduledStationAETitle ''
+KEEP ScheduledStationGeographicLocationCodeSequence
+KEEP ScheduledStationName
+KEEP ScheduledStationNameCodeSequence
+KEEP ScheduledStudyLocation
+REPLACE ScheduledStudyLocationAETitle ''
+REPLACE SelectorAEValue ''
+KEEP SourceManufacturer
+KEEP SourceSerialNumber
+REPLACE StationAETitle ''
+KEEP StationName
+KEEP TimeOfLastCalibration
+KEEP TimeOfLastDetectorCalibration
+KEEP TransducerIdentificationSequence
+KEEP TreatmentMachineName
+KEEP UDISequence
+KEEP UniqueDeviceIdentifier
+KEEP XRayDetectorID
+KEEP XRayDetectorLabel
+KEEP XRaySourceID

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mede"
+version = "0.0.1"
+authors = [
+  {name="Moritz Rempe & Lukas Heine", email="moritz.rempe@uk-essen.de"},
+]
+description = "De-Identification of Medical Imaging Data: A Comprehensive Tool for Ensuring Patient Privacy"
+readme = "README.md"
+requires-python = ">=3.9"
+
+dependencies = [
+  "scikit-image",
+  "deid",
+  "nibabel",
+  "numpy",
+  "opencv_python_headless",
+  "pandas",
+  "Pillow",
+  "pydicom",
+  "pytesseract",
+  "PyYAML",
+  "timm",
+  "torch==2.2.2",
+  "torchio",
+  "torchvision",
+  "tqdm",
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
+package-data = { "mede" = ["models/*.pth", "dicom_deid/*"] }
+
+[project.urls]
+Homepage = "https://github.com/TIO-IKIM/medical_image_deidentification"
+Issues = "https://github.com/TIO-IKIM/medical_image_deidentification/issues"
+
+[project.scripts]
+mede-deidentify = "mede.deidentify:main"

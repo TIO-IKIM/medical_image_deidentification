@@ -1,5 +1,0 @@
-FORMAT dicom
-%header
-REPLACE GraphicAnnotationSequence ''
-REPLACE OverlayComments ''
-REPLACE OverlayData ''

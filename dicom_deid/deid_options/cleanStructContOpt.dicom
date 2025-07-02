@@ -1,5 +1,0 @@
-FORMAT dicom
-%header
-REPLACE AcquisitionContextSequence ''
-REPLACE ContentSequence ''
-REPLACE SpecimenPreparationSequence ''
