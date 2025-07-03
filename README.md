@@ -22,7 +22,7 @@ This repository contains the **De-Identification of Medical Imaging Data: A Comp
 
 <div align="center">
 
-![Overview](Figures/aam_pipeline-2.png)
+<img src="Figures/aam_pipeline.png" alt="Overview" width="300"/>
 
 </div>
 
@@ -33,7 +33,7 @@ This tool combines multiple anonymization steps, including metadata deidentifica
 
 ## Getting started
 
-You can install the anonymization tool directly via pip (recommended) or via Docker. 
+You can install the anonymization tool directly via pip or Docker. 
 
 ### Installation via pip
 
@@ -55,21 +55,21 @@ brew install tesseract
 ```
 
 ### Installation via Docker
-Alternatively this tool is distributed via docker. You can find the docker images [here](https://hub.docker.com/r/morrempe/hold). The docker image is available for amd64 and arm64 platforms.
+Alternatively this tool is distributed via docker. You can find the docker images [here](https://hub.docker.com/r/morrempe/hold). The docker image is available for Linux-based (including Mac) amd64 and arm64 platforms.
 
 For the installation and execution of the docker image, you must have [Docker](https://docs.docker.com/get-docker/) installed on your system.
 
 1. Pull the docker image
 
-       docker pull morrempe/hold:[tag]   (either arm64 or amd64)
+       docker pull morrempe/mede:[tag]   (either arm64 or amd64)
 
 2. Run the docker container with attached volume. Your data will be mounted in the ````data```` folder:
 
-       docker run --rm -it -v [Path/to/your/data]:/data morrempe/hold:[tag]
+       docker run --rm -it -v [Path/to/your/data]:/data morrempe/mede:[tag]
 
 3. Run the script with the corresponding cli parameter, e.g.:
 
-       python3 deidentify.py [your flags]
+       mede-deidentify [your flags]
 
 ## Usage
 **De-Identification CLI**
