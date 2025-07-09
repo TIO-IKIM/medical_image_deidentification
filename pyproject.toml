@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mede"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
   {name="Moritz Rempe & Lukas Heine", email="moritz.rempe@uk-essen.de"},
 ]
