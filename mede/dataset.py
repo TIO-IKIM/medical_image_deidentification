@@ -437,10 +437,10 @@ def get_inference_loader(
     valid_paths = {"image_path": []}
 
     for file in potential_paths["image_path"]:
-        file = file.lower()
-        if file.endswith(".nii") or file.endswith(".nii.gz"):
+        fn = file.lower()
+        if fn.endswith(".nii") or fn.endswith(".nii.gz"):
             valid_paths["image_path"].append(file)
-        elif file.endswith(".dcm"):
+        elif fn.endswith(".dcm"):
             valid_paths["image_path"].append(file)
         elif os.path.isdir(file):
             valid_paths["image_path"].append(file)
