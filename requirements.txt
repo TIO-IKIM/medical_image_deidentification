@@ -13,3 +13,4 @@ torch==2.2.2
 torchio
 torchvision
 tqdm
+safetensors==0.5.3
