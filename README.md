@@ -2,7 +2,7 @@
 
 [![Python 3.11.2](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/release/python-3120/) 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 ![Open Source Love][0c]
 [![Docker](https://img.shields.io/badge/-Docker-46a2f1?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/r/morrempe/hold)
 ![PyPI - Version](https://img.shields.io/pypi/v/mede?color=blue&label=mede&logo=pypi&logoColor=white)
