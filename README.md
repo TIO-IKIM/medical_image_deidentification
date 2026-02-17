@@ -18,6 +18,10 @@
 > [!IMPORTANT]  
 > The package is now available on PyPI: `pip install mede`
 
+> [!NOTE]
+> MEDE now supports the _Enhanced DICOM_ format!
+
+
 This repository contains the **De-Identification of Medical Imaging Data: A Comprehensive Tool for Ensuring Patient Privacy**, which enables the user to anonymize a wide variety of medical imaging types, including Magnetic Resonance Imaging (MRI), Computer Tomography (CT), Ultrasound (US), Whole Slide Images (WSI) or MRI raw data (twix).
 
 <div align="center">
