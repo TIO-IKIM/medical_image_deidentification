@@ -31,6 +31,11 @@ def resample(nifti_img: nib.Nifti1Image) -> nib.Nifti1Image:
     orig_orientation = nib.orientations.io_orientation(nifti_img.affine)
     target_orientation = nib.orientations.axcodes2ornt(("R", "A", "S"))
 
+    # Handle NaN values in orientation by using default orientation
+    if np.any(np.isnan(orig_orientation)):
+        logging.info("NaN values detected in image orientation. Using default orientation.")
+        orig_orientation = nib.orientations.axcodes2ornt(("R", "A", "S"))
+
     transform = nib.orientations.ornt_transform(orig_orientation, target_orientation)
 
     return nifti_img.as_reoriented(transform)
@@ -222,6 +227,12 @@ def nifti2dcm(nifti_file: nib.Nifti1Image, dcm_dir: str, out_dir: str) -> None:
 
     orig_orientation = nib.orientations.io_orientation(nifti_file.affine)
     target_orientation = nib.orientations.io_orientation(target_affine)
+    
+    if np.any(np.isnan(orig_orientation)):
+        orig_orientation = nib.orientations.axcodes2ornt(("R", "A", "S"))
+    if np.any(np.isnan(target_orientation)):
+        target_orientation = nib.orientations.axcodes2ornt(("R", "A", "S"))
+        
     transform = nib.orientations.ornt_transform(orig_orientation, target_orientation)
 
     nifti_file = nifti_file.as_reoriented(transform)
