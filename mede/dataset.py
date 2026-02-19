@@ -243,11 +243,14 @@ def nifti2dcm(nifti_file: nib.Nifti1Image, dcm_dir: str, out_dir: str) -> None:
 
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
+    n_slices = range(number_slices)
     for slice_ in range(number_slices):
+        if len(n_slices) != 1:
+            dcm_dir = f"slice{slice_}.dcm"
         dcm = pydicom.dcmread(files[slice_], stop_before_pixels=False)
         dcm.PixelData = (nifti_array[slice_, ...]).astype(np.uint16).tobytes()
         pydicom.dcmwrite(
-            filename=os.path.join(out_dir, f"slice{slice_}.dcm"),
+            filename=os.path.join(out_dir, dcm_dir.split("/")[-1]),
             dataset=dcm,
         )
 
