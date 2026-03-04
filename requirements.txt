@@ -1,11 +1,11 @@
 scikit-image==0.24.0
-deid==0.3.23
+deid==0.4.12
 nibabel==5.2.1
 numpy==1.26.4
 opencv_python_headless==4.9.0.80
 pandas==2.0.3
 Pillow==10.4.0
-pydicom==2.3.1
+pydicom==3.0.1
 pytesseract==0.3.10
 PyYAML==6.0.1
 timm==1.0.7

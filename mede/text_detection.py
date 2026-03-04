@@ -58,6 +58,9 @@ class TextRemoval:
         boxes = pytesseract.image_to_boxes(
             img_covered, output_type=pytesseract.Output.DICT, nice=1
         )
+        
+        if not boxes:
+            return img
 
         for left, bottom, right, top in zip(
             boxes["left"], boxes["bottom"], boxes["right"], boxes["top"]
@@ -144,20 +147,20 @@ class TextRemoval:
                     
             img = self.predict(img=img, img_orig=img_orig if 'img_orig' in locals() else None)
 
-            self.output_path = os.path.join(
+            _output_path = os.path.join(
                 self.output_path, f"{Path(base_fn).name}_text_removed"
             )
 
             match file_ending:
                 # nifti
                 case "png" | "jpg" | "jpeg":
-                    cv.imwrite(f"{self.output_path}.png", img)
+                    cv.imwrite(f"{_output_path}.png", img)
                 case "dcm":
                     dcm.PixelData = img.tobytes()
-                    dcm.save_as(f"{self.output_path}.dcm")
+                    dcm.save_as(f"{_output_path}.dcm")
                 case "nii":
                     nifti = nib.Nifti1Image(img, nifti.affine)
-                    nib.save(nifti, f"{self.output_path}.nii")
+                    nib.save(nifti, f"{_output_path}.nii")
                 case "gz":
                     nifti = nib.Nifti1Image(img, nifti.affine)
-                    nib.save(nifti, f"{self.output_path}.nii.gz")
+                    nib.save(nifti, f"{_output_path}.nii.gz")

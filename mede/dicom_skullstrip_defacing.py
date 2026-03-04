@@ -161,5 +161,3 @@ class Inference:
 
                 if self._verbose:
                     logging.info(f"Time for volume: {round((end_time - start_time), 3)} seconds.")
-
-        logging.info(times)

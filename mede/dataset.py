@@ -249,10 +249,7 @@ def nifti2dcm(nifti_file: nib.Nifti1Image, dcm_dir: str, out_dir: str) -> None:
             dcm_dir = f"slice{slice_}.dcm"
         dcm = pydicom.dcmread(files[slice_], stop_before_pixels=False)
         dcm.PixelData = (nifti_array[slice_, ...]).astype(np.uint16).tobytes()
-        pydicom.dcmwrite(
-            filename=os.path.join(out_dir, dcm_dir.split("/")[-1]),
-            dataset=dcm,
-        )
+        dcm.save_as(os.path.join(out_dir, dcm_dir.split("/")[-1]))
 
 
 class SegmentationDataset(Dataset):
@@ -776,7 +773,7 @@ def reconstruct_enhanced_dicom_from_niftis(nifti_paths: list, original_dcm_path:
     new_pixel_array = new_pixel_array.astype(dcm.pixel_array.dtype)
     dcm.PixelData = new_pixel_array.tobytes()
     
-    pydicom.dcmwrite(f"{output_path}/{original_dcm_path.split('/')[-1]}", dcm)
+    dcm.save_as(f"{output_path}/{original_dcm_path.split('/')[-1]}")
     
     # Delete temporary NIfTI files
     for nifti_path in nifti_paths:

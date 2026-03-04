@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Anonymize anything (medical)
+De-Identification of Medical Imaging Data: A Comprehensive Tool for Ensuring Patient Privacy
+
 Authors: Moritz Rempe & Lukas Heine
 """
 import argparse
@@ -23,7 +24,7 @@ def main():
         "-v",
         "--verbose",
         required=False,
-        default=True,
+        default=False,
         action=argparse.BooleanOptionalAction,
     )
     parser.add_argument(
@@ -164,6 +165,7 @@ def main():
     if args.text_removal:
         txt_removal = TextRemoval(output_path=args.output, verbose=args.verbose)
         txt_removal(_input)
+        _input = _out
         
 if __name__ == "__main__":
     main()
