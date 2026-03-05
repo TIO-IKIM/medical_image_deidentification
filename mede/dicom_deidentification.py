@@ -51,14 +51,14 @@ class DicomDeidentifier:
         if self._verbose:
             logging.info(f"Using recipe(s) {recipe} for DICOM deidentification")
 
-    def __call__(self, dataset: str, out: str = None) -> None:
+    def __call__(self, dataset: str) -> None:
         """Pseudonymize a single dicom dataset
 
         :param dataset: dataset that will be pseudonymized
         :returns: pseudonymized dataset
         """
         if os.path.isfile(dataset):
-            new_name = dataset.split(".")[0] + "_deidentified.dcm"
+            new_name = dataset.split(os.path.sep)[-1].split('.')[0] + "_deidentified.dcm"
             try:
                 dcm = pydicom.dcmread(dataset)  # Consider stop_before_pixels
             except InvalidDicomError:
@@ -70,9 +70,11 @@ class DicomDeidentifier:
             parser.define("new_UID", self.new_UID)
             # parse the dataset and apply the deidentification
             parser.parse()
-            parser.dicom.save_as(new_name)
+            
+            new_fn = os.path.join(self._out, new_name) if self._out is not None else new_name
+            parser.dicom.save_as(new_fn)
             if self._verbose:
-                logging.info(f"Saved\t{new_name}")
+                logging.info(f"Saved\t{new_fn}")
 
         elif os.path.isdir(dataset):
             if self._out is None:
