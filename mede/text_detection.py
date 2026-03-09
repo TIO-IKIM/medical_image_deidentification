@@ -3,7 +3,6 @@ import cv2 as cv
 import numpy as np
 import os
 import pytesseract
-import cv2
 from glob import glob
 import nibabel as nib
 from PIL import Image

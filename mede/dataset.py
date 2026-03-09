@@ -33,7 +33,9 @@ def resample(nifti_img: nib.Nifti1Image) -> nib.Nifti1Image:
 
     # Handle NaN values in orientation by using default orientation
     if np.any(np.isnan(orig_orientation)):
-        logging.info("NaN values detected in image orientation. Using default orientation.")
+        logging.info(
+            "NaN values detected in image orientation. Using default orientation."
+        )
         orig_orientation = nib.orientations.axcodes2ornt(("R", "A", "S"))
 
     transform = nib.orientations.ornt_transform(orig_orientation, target_orientation)
@@ -98,11 +100,9 @@ def create_affine(sorted_dicoms: list) -> np.matrix:
         image_orient2 = np.array([0, 1, 0])
         image_pos = np.array([0, 0, 0])
         last_image_pos = np.array([0, 0, 0])
-        
 
     delta_r = float(dicom_first.PixelSpacing[0])
     delta_c = float(dicom_first.PixelSpacing[1])
-
 
     if len(sorted_dicoms) == 1:
         # Single slice
@@ -157,15 +157,17 @@ def dcm2nifti(dir_path: str, transpose: bool = False) -> nib.Nifti1Image:
         )
     else:
         files = [dir_path]
-        
+
     if is_enhanced_dicom(files[0]):
         nifti, _ = extract_volumes_from_enhanced_dicom(files[0])
         if len(nifti) > 1:
-            logging.info(f"Enhanced DICOM with {len(nifti)} volumes found. Returning first volume only.")
+            logging.info(
+                f"Enhanced DICOM with {len(nifti)} volumes found. Returning first volume only."
+            )
         nifti = nifti[0]
-        
+
         ### TODO: Handle multiple volumes properly ###
-        
+
     else:
         affine = create_affine(files)
 
@@ -174,7 +176,7 @@ def dcm2nifti(dir_path: str, transpose: bool = False) -> nib.Nifti1Image:
         volume = np.transpose(volume, (2, 1, 0))
 
         nifti = nib.Nifti1Image(volume, affine)
-        
+
     nifti = resample(nifti)
 
     if transpose:
@@ -195,7 +197,7 @@ def nifti2dcm(nifti_file: nib.Nifti1Image, dcm_dir: str, out_dir: str) -> None:
     Returns:
         None
     """
-    
+
     # Enhanced DICOM case
     if os.path.isfile(dcm_dir) and is_enhanced_dicom(dcm_dir):
         # Accept both a single NIfTI or a list of NIfTIs
@@ -212,7 +214,7 @@ def nifti2dcm(nifti_file: nib.Nifti1Image, dcm_dir: str, out_dir: str) -> None:
                     nifti_paths.append(path)
                 else:
                     nifti_paths.append(n)
-                    
+
         reconstruct_enhanced_dicom_from_niftis(nifti_paths, dcm_dir, out_dir)
 
         return
@@ -227,12 +229,12 @@ def nifti2dcm(nifti_file: nib.Nifti1Image, dcm_dir: str, out_dir: str) -> None:
 
     orig_orientation = nib.orientations.io_orientation(nifti_file.affine)
     target_orientation = nib.orientations.io_orientation(target_affine)
-    
+
     if np.any(np.isnan(orig_orientation)):
         orig_orientation = nib.orientations.axcodes2ornt(("R", "A", "S"))
     if np.any(np.isnan(target_orientation)):
         target_orientation = nib.orientations.axcodes2ornt(("R", "A", "S"))
-        
+
     transform = nib.orientations.ornt_transform(orig_orientation, target_orientation)
 
     nifti_file = nifti_file.as_reoriented(transform)
@@ -397,6 +399,15 @@ class InferenceDataset(SegmentationDataset):
             nifti_img = nib.load(file_path)
             pixels = resample(nifti_img).get_fdata().copy()
             pixels = np.transpose(pixels, (2, 0, 1))
+        elif file_path.endswith(".npy"):
+            pixels = np.load(file_path)
+            if pixels.ndim == 4 and pixels.shape[0] == 1:
+                pixels = pixels[0]
+            if pixels.ndim != 3:
+                raise ValueError(
+                    f"Unsupported numpy array shape {pixels.shape} in {file_path}. Expected 3D volume."
+                )
+            pixels = np.transpose(pixels, (2, 0, 1))
         else:
             # assert os.path.isdir(file_path), "DICOM must be volume in folder."
             pixels = dcm2nifti(file_path, transpose=True)
@@ -460,6 +471,8 @@ def get_inference_loader(
 
     Returns:
         DataLoader: The data loader for inference.
+
+    Supported input formats: .nii, .nii.gz, .dcm (directory or single file), and .npy volumes.
     """
 
     dataloader_params = {
@@ -487,13 +500,18 @@ def get_inference_loader(
             valid_paths["image_path"].append(file)
         elif os.path.isdir(file):
             valid_paths["image_path"].append(file)
+        elif fn.endswith(".npy"):
+            valid_paths["image_path"].append(file)
+            logging.info(
+                f"Found .npy file: {fn}. Will attempt to load as numpy array. There will be no metadata associated with this file, so affine will be identity and orientation will be RAS."
+            )
         else:
             try:
                 pydicom.dcmread(file, stop_before_pixels=True)
                 valid_paths["image_path"].append(file)
             except Exception:
                 logging.warning(
-                    f"Wrong file format: {file}\nAccepted file formats are .nii, .nii.gz and .dcm"
+                    f"Wrong file format: {file}\nAccepted file formats are .nii, .nii.gz, .dcm, and .npy"
                 )
 
     inference_dataset = InferenceDataset(valid_paths)
@@ -501,46 +519,50 @@ def get_inference_loader(
 
     return inference_loader
 
+
 def is_enhanced_dicom(dcm_file: str) -> bool:
     """
     Check if a DICOM file is an Enhanced DICOM format.
-    
+
     Args:
         dcm_file (str): Path to the DICOM file.
-        
+
     Returns:
         bool: True if the file is Enhanced DICOM, False otherwise.
     """
     enhanced_uids = [
-        '1.2.840.10008.5.1.4.1.1.4.1',  # Enhanced MR Image Storage
-        '1.2.840.10008.5.1.4.1.1.2.1',  # Enhanced CT Image Storage
-        '1.2.840.10008.5.1.4.1.1.4.3',  # Enhanced MR Color Image Storage
-        '1.2.840.10008.5.1.4.1.1.128',  # Enhanced PET Image Storage
-        '1.2.840.10008.5.1.4.1.1.2.2',  # Legacy Converted Enhanced CT
-        '1.2.840.10008.5.1.4.1.1.4.4'   # Legacy Converted Enhanced MR
+        "1.2.840.10008.5.1.4.1.1.4.1",  # Enhanced MR Image Storage
+        "1.2.840.10008.5.1.4.1.1.2.1",  # Enhanced CT Image Storage
+        "1.2.840.10008.5.1.4.1.1.4.3",  # Enhanced MR Color Image Storage
+        "1.2.840.10008.5.1.4.1.1.128",  # Enhanced PET Image Storage
+        "1.2.840.10008.5.1.4.1.1.2.2",  # Legacy Converted Enhanced CT
+        "1.2.840.10008.5.1.4.1.1.4.4",  # Legacy Converted Enhanced MR
     ]
-    
+
     dcm = pydicom.dcmread(dcm_file, stop_before_pixels=True)
-    
+
     return hasattr(dcm, "SOPClassUID") and str(dcm.SOPClassUID) in enhanced_uids
 
-def extract_volumes_from_enhanced_dicom(dcm_file: str) -> tuple[list[nib.Nifti1Image], pydicom.Dataset]:
+
+def extract_volumes_from_enhanced_dicom(
+    dcm_file: str,
+) -> tuple[list[nib.Nifti1Image], pydicom.Dataset]:
     """
     Extract individual volumes from an Enhanced DICOM file.
-    
+
     Enhanced DICOM files can contain multiple volumes/acquisitions stored as frames.
     This function separates them based on metadata (e.g., different acquisitions,
     different stack IDs, or temporal positions).
-    
+
     Args:
         dcm_file (str): Path to the Enhanced DICOM file.
-        
+
     Returns:
         tuple: (list of NIfTI volumes, original DICOM dataset for metadata)
     """
     dcm = pydicom.dcmread(dcm_file)
-    
-    if not hasattr(dcm, 'NumberOfFrames'):
+
+    if not hasattr(dcm, "NumberOfFrames"):
         # Single frame, treat as single volume
         volume = dcm.pixel_array
         if volume.ndim == 2:
@@ -548,52 +570,53 @@ def extract_volumes_from_enhanced_dicom(dcm_file: str) -> tuple[list[nib.Nifti1I
         affine = create_affine_enhanced(dcm, frame_indices=[0])
         nifti = nib.Nifti1Image(volume.transpose(2, 1, 0), affine)
         return [resample(nifti)], dcm
-    
+
     num_frames = int(dcm.NumberOfFrames)
     pixel_array = dcm.pixel_array
-    
+
     # Group frames by volume using metadata
     volume_groups = group_frames_by_volume(dcm, num_frames)
-    
+
     volumes = []
     for frame_indices in volume_groups:
         # Extract frames for this volume
         volume_data = pixel_array[frame_indices]
-        
+
         # Create affine matrix for this volume
         affine = create_affine_enhanced(dcm, frame_indices)
-        
+
         # Create NIfTI image
         volume_data_transposed = np.transpose(volume_data, (2, 1, 0))
         nifti = nib.Nifti1Image(volume_data_transposed, affine)
         volumes.append(resample(nifti))
-    
+
     return volumes, dcm
+
 
 def group_frames_by_volume(dcm: pydicom.Dataset, num_frames: int) -> list[list[int]]:
     """
     Group frames into separate volumes based on DICOM metadata.
-    
+
     This looks at PerFrameFunctionalGroupsSequence to identify which frames
     belong to which volume based on:
     - StackID (if available)
     - InStackPositionNumber
     - TemporalPositionIndex
     - DimensionIndexValues
-    
+
     Args:
         dcm (pydicom.Dataset): The Enhanced DICOM dataset.
         num_frames (int): Total number of frames.
-        
+
     Returns:
         list[list[int]]: List of frame index groups, each representing a volume.
     """
-    if not hasattr(dcm, 'PerFrameFunctionalGroupsSequence'):
+    if not hasattr(dcm, "PerFrameFunctionalGroupsSequence"):
         # No frame-specific metadata, treat all frames as one volume
         return [list(range(num_frames))]
-    
+
     frame_metadata = []
-    
+
     for frame_idx in range(num_frames):
         per_frame = dcm.PerFrameFunctionalGroupsSequence[frame_idx]
 
@@ -601,77 +624,98 @@ def group_frames_by_volume(dcm: pydicom.Dataset, num_frames: int) -> list[list[i
         temporal_pos = None
         in_stack_pos = None
         dimension_idx = None
-        
+
         # Check for FrameContentSequence
-        if hasattr(per_frame, 'FrameContentSequence') and len(per_frame.FrameContentSequence) > 0:
+        if (
+            hasattr(per_frame, "FrameContentSequence")
+            and len(per_frame.FrameContentSequence) > 0
+        ):
             frame_content = per_frame.FrameContentSequence[0]
-            
-            if hasattr(frame_content, 'StackID'):
+
+            if hasattr(frame_content, "StackID"):
                 stack_id = frame_content.StackID
-            if hasattr(frame_content, 'InStackPositionNumber'):
+            if hasattr(frame_content, "InStackPositionNumber"):
                 in_stack_pos = int(frame_content.InStackPositionNumber)
-            if hasattr(frame_content, 'TemporalPositionIndex'):
+            if hasattr(frame_content, "TemporalPositionIndex"):
                 temporal_pos = int(frame_content.TemporalPositionIndex)
-            if hasattr(frame_content, 'DimensionIndexValues'):
+            if hasattr(frame_content, "DimensionIndexValues"):
                 dimension_idx = tuple(frame_content.DimensionIndexValues)
-        
-        frame_metadata.append({
-            'frame_idx': frame_idx,
-            'stack_id': stack_id,
-            'temporal_pos': temporal_pos if temporal_pos is not None else 1,
-            'in_stack_pos': in_stack_pos,
-            'dimension_idx': dimension_idx
-        })
-    
+
+        frame_metadata.append(
+            {
+                "frame_idx": frame_idx,
+                "stack_id": stack_id,
+                "temporal_pos": temporal_pos if temporal_pos is not None else 1,
+                "in_stack_pos": in_stack_pos,
+                "dimension_idx": dimension_idx,
+            }
+        )
+
     # Group by stack_id first, then by temporal_pos
     volume_dict = defaultdict(list)
-    
+
     for frame_meta in frame_metadata:
         # Create a key that identifies unique volumes
         # Prioritize stack_id, then temporal_pos
-        if frame_meta['stack_id'] is not None:
-            key = (frame_meta['stack_id'], frame_meta['temporal_pos'])
-        elif frame_meta['dimension_idx'] is not None:
+        if frame_meta["stack_id"] is not None:
+            key = (frame_meta["stack_id"], frame_meta["temporal_pos"])
+        elif frame_meta["dimension_idx"] is not None:
             # For multi-dimensional data, use first dimension index as volume identifier
-            key = (frame_meta['dimension_idx'][0] if len(frame_meta['dimension_idx']) > 0 else 0,
-                   frame_meta['temporal_pos'])
+            key = (
+                (
+                    frame_meta["dimension_idx"][0]
+                    if len(frame_meta["dimension_idx"]) > 0
+                    else 0
+                ),
+                frame_meta["temporal_pos"],
+            )
         else:
             # Fall back to temporal position only
-            key = (0, frame_meta['temporal_pos'])
-        
-        volume_dict[key].append(frame_meta['frame_idx'])
-    
+            key = (0, frame_meta["temporal_pos"])
+
+        volume_dict[key].append(frame_meta["frame_idx"])
+
     # Sort frames within each volume by in_stack_pos
     volume_groups = []
     for key in sorted(volume_dict.keys()):
         frame_indices = volume_dict[key]
         # Sort by in_stack_pos if available
-        if frame_metadata[frame_indices[0]]['in_stack_pos'] is not None:
-            frame_indices = sorted(frame_indices, 
-                                 key=lambda idx: frame_metadata[idx]['in_stack_pos'])
+        if frame_metadata[frame_indices[0]]["in_stack_pos"] is not None:
+            frame_indices = sorted(
+                frame_indices, key=lambda idx: frame_metadata[idx]["in_stack_pos"]
+            )
         volume_groups.append(frame_indices)
-    
+
     return volume_groups
+
 
 def create_affine_enhanced(dcm: pydicom.Dataset, frame_indices: list[int]) -> np.matrix:
     """
     Create an affine matrix for Enhanced DICOM frames.
-    
+
     Args:
         dcm (pydicom.Dataset): Enhanced DICOM dataset.
         frame_indices (list[int]): List of frame indices for this volume.
-        
+
     Returns:
         np.matrix: The affine matrix.
     """
     first_frame_idx = frame_indices[0]
     last_frame_idx = frame_indices[-1]
-    
+
     # Get orientation from SharedFunctionalGroupsSequence or first frame
-    if hasattr(dcm, 'SharedFunctionalGroupsSequence') and len(dcm.SharedFunctionalGroupsSequence) > 0:
+    if (
+        hasattr(dcm, "SharedFunctionalGroupsSequence")
+        and len(dcm.SharedFunctionalGroupsSequence) > 0
+    ):
         shared = dcm.SharedFunctionalGroupsSequence[0]
-        if hasattr(shared, 'PlaneOrientationSequence') and len(shared.PlaneOrientationSequence) > 0:
-            image_orient = np.array(shared.PlaneOrientationSequence[0].ImageOrientationPatient)
+        if (
+            hasattr(shared, "PlaneOrientationSequence")
+            and len(shared.PlaneOrientationSequence) > 0
+        ):
+            image_orient = np.array(
+                shared.PlaneOrientationSequence[0].ImageOrientationPatient
+            )
             image_orient1 = image_orient[0:3]
             image_orient2 = image_orient[3:6]
         else:
@@ -680,27 +724,43 @@ def create_affine_enhanced(dcm: pydicom.Dataset, frame_indices: list[int]) -> np
     else:
         image_orient1 = np.array([1, 0, 0])
         image_orient2 = np.array([0, 1, 0])
-    
+
     # Get position from PerFrameFunctionalGroupsSequence
     per_frame_first = dcm.PerFrameFunctionalGroupsSequence[first_frame_idx]
     per_frame_last = dcm.PerFrameFunctionalGroupsSequence[last_frame_idx]
-    
-    if hasattr(per_frame_first, 'PlanePositionSequence') and len(per_frame_first.PlanePositionSequence) > 0:
-        image_pos = np.array(per_frame_first.PlanePositionSequence[0].ImagePositionPatient)
+
+    if (
+        hasattr(per_frame_first, "PlanePositionSequence")
+        and len(per_frame_first.PlanePositionSequence) > 0
+    ):
+        image_pos = np.array(
+            per_frame_first.PlanePositionSequence[0].ImagePositionPatient
+        )
     else:
         image_pos = np.array([0, 0, 0])
-    
-    if hasattr(per_frame_last, 'PlanePositionSequence') and len(per_frame_last.PlanePositionSequence) > 0:
-        last_image_pos = np.array(per_frame_last.PlanePositionSequence[0].ImagePositionPatient)
+
+    if (
+        hasattr(per_frame_last, "PlanePositionSequence")
+        and len(per_frame_last.PlanePositionSequence) > 0
+    ):
+        last_image_pos = np.array(
+            per_frame_last.PlanePositionSequence[0].ImagePositionPatient
+        )
     else:
         last_image_pos = image_pos
-    
+
     # Get pixel spacing
-    if hasattr(dcm, 'SharedFunctionalGroupsSequence') and len(dcm.SharedFunctionalGroupsSequence) > 0:
+    if (
+        hasattr(dcm, "SharedFunctionalGroupsSequence")
+        and len(dcm.SharedFunctionalGroupsSequence) > 0
+    ):
         shared = dcm.SharedFunctionalGroupsSequence[0]
-        if hasattr(shared, 'PixelMeasuresSequence') and len(shared.PixelMeasuresSequence) > 0:
+        if (
+            hasattr(shared, "PixelMeasuresSequence")
+            and len(shared.PixelMeasuresSequence) > 0
+        ):
             pixel_measures = shared.PixelMeasuresSequence[0]
-            if hasattr(pixel_measures, 'PixelSpacing'):
+            if hasattr(pixel_measures, "PixelSpacing"):
                 pixel_spacing = pixel_measures.PixelSpacing
                 delta_r = float(pixel_spacing[0])
                 delta_c = float(pixel_spacing[1])
@@ -710,34 +770,54 @@ def create_affine_enhanced(dcm: pydicom.Dataset, frame_indices: list[int]) -> np
             delta_r = delta_c = 1.0
     else:
         delta_r = delta_c = 1.0
-    
+
     # Calculate step between slices
     if len(frame_indices) == 1:
         step = np.array([0, 0, -1])
     else:
         step = (image_pos - last_image_pos) / (1 - len(frame_indices))
-    
-    affine = np.matrix([
-        [-image_orient1[0] * delta_c, -image_orient2[0] * delta_r, -step[0], -image_pos[0]],
-        [-image_orient1[1] * delta_c, -image_orient2[1] * delta_r, -step[1], -image_pos[1]],
-        [image_orient1[2] * delta_c, image_orient2[2] * delta_r, step[2], image_pos[2]],
-        [0, 0, 0, 1]
-    ])
-    
+
+    affine = np.matrix(
+        [
+            [
+                -image_orient1[0] * delta_c,
+                -image_orient2[0] * delta_r,
+                -step[0],
+                -image_pos[0],
+            ],
+            [
+                -image_orient1[1] * delta_c,
+                -image_orient2[1] * delta_r,
+                -step[1],
+                -image_pos[1],
+            ],
+            [
+                image_orient1[2] * delta_c,
+                image_orient2[2] * delta_r,
+                step[2],
+                image_pos[2],
+            ],
+            [0, 0, 0, 1],
+        ]
+    )
+
     return affine
 
-def reconstruct_enhanced_dicom_from_niftis(nifti_paths: list, original_dcm_path: str, output_path: str):
+
+def reconstruct_enhanced_dicom_from_niftis(
+    nifti_paths: list, original_dcm_path: str, output_path: str
+):
     """
     Reconstructs an enhanced DICOM file by replacing its pixel data with data from a list of processed NIfTI files.
     This function reads the original enhanced DICOM file, groups its frames by volume, and replaces the pixel data
     for each volume with the corresponding data from the provided NIfTI files. The resulting DICOM is saved to the
     specified output path.
-    
+
     Args:
         nifti_paths (list): List of file paths to 3D NIfTI files, each representing a processed volume.
         original_dcm_path (str): Path to the original enhanced DICOM file to be used as a template.
         output_path (str): Directory where the reconstructed DICOM file will be saved.
-        
+
     Raises:
         ValueError: If the number of NIfTI files does not match the number of volumes in the original DICOM,
                     or if a NIfTI file is not 3D.
@@ -745,36 +825,40 @@ def reconstruct_enhanced_dicom_from_niftis(nifti_paths: list, original_dcm_path:
 
     dcm = pydicom.dcmread(original_dcm_path)
     num_frames = int(dcm.NumberOfFrames)
-    
+
     volume_groups = group_frames_by_volume(dcm, num_frames)
     if len(nifti_paths) != len(volume_groups):
-        raise ValueError("Number of NIfTIs does not match number of volumes in original DICOM.")
+        raise ValueError(
+            "Number of NIfTIs does not match number of volumes in original DICOM."
+        )
     all_frames = []
-    
+
     for nifti_path, frame_indices in zip(nifti_paths, volume_groups):
         img = nib.load(nifti_path)
         data = img.get_fdata()
-        
+
         if data.ndim == 3:
             data = np.transpose(data, (2, 1, 0))
         else:
             raise ValueError("Processed NIfTI must be 3D.")
-        
+
         if data.shape[0] != len(frame_indices):
             if data.shape[0] < len(frame_indices):
-                pad = np.zeros((len(frame_indices) - data.shape[0], data.shape[1], data.shape[2]))
+                pad = np.zeros(
+                    (len(frame_indices) - data.shape[0], data.shape[1], data.shape[2])
+                )
                 data = np.concatenate([data, pad], axis=0)
             else:
-                data = data[:len(frame_indices)]
+                data = data[: len(frame_indices)]
         for slice_idx in range(len(frame_indices)):
             all_frames.append(data[slice_idx, ...])
     new_pixel_array = np.array(all_frames)
-    
+
     new_pixel_array = new_pixel_array.astype(dcm.pixel_array.dtype)
     dcm.PixelData = new_pixel_array.tobytes()
-    
+
     dcm.save_as(f"{output_path}/{original_dcm_path.split('/')[-1]}")
-    
+
     # Delete temporary NIfTI files
     for nifti_path in nifti_paths:
         if os.path.exists(nifti_path):

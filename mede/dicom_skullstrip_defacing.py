@@ -89,7 +89,7 @@ class Inference:
         4. Iterates over the data and performs inference on each batch.
         5. Processes the predicted output and saves it as a NIfTI image.
 
-        Note: The input data can be in DICOM or NIfTI format.
+        Note: The input data can be in DICOM, NIfTI, or NumPy (.npy) volume format.
 
         Raises:
             None
@@ -109,6 +109,8 @@ class Inference:
 
         test_loader = get_inference_loader(self.input_path, batch_size=1)
 
+        Path(self.output_path).mkdir(parents=True, exist_ok=True)
+
         times = []
 
         for data in tqdm(test_loader, desc="Inference (Batch)"):
@@ -122,14 +124,34 @@ class Inference:
             pred = pred.detach()
 
             for idx in range(image.shape[0]):
-                if data["file_name"][idx].endswith('.nii') or data["file_name"][idx].endswith('.nii.gz'):
-                    nifti_img = nib.load(data["file_name"][idx])
-                    nifti_img = resample(nifti_img)
-                else:
-                    nifti_img = dcm2nifti(data["file_name"][idx], transpose=False)
+                file_path = data["file_name"][idx]
+                file_lower = file_path.lower()
+                is_nifti = file_lower.endswith('.nii') or file_lower.endswith('.nii.gz')
+                is_npy = file_lower.endswith('.npy')
 
-                nifti_img_data = nifti_img.get_fdata()
-                size = np.transpose(nifti_img_data, (2, 0, 1)).shape
+                if is_nifti:
+                    nifti_img = nib.load(file_path)
+                    nifti_img = resample(nifti_img)
+                    input_volume = nifti_img.get_fdata()
+                    affine = nifti_img.affine
+                    header = nifti_img.header
+                elif is_npy:
+                    input_volume = np.load(file_path)
+                    if input_volume.ndim == 4 and input_volume.shape[0] == 1:
+                        input_volume = input_volume[0]
+                    if input_volume.ndim != 3:
+                        raise ValueError(
+                            f"Unsupported numpy array shape {input_volume.shape} in {file_path}. Expected 3D volume."
+                        )
+                    affine = np.eye(4)
+                    header = None
+                else:
+                    nifti_img = dcm2nifti(file_path, transpose=False)
+                    input_volume = nifti_img.get_fdata()
+                    affine = nifti_img.affine
+                    header = nifti_img.header
+
+                size = np.transpose(input_volume, (2, 0, 1)).shape
 
                 if pred.ndim == 5:
                     pred_numpy = torch.nn.Upsample(size=size)(
@@ -143,17 +165,22 @@ class Inference:
                     )
                 if pred_numpy.ndim == 2:
                     pred_numpy = pred_numpy[None, ...]
-                pred = nifti_img_data * (np.transpose(pred_numpy > 0.5, (1, 2, 0)))
-                
-                img = nib.Nifti1Image(pred, affine=nifti_img.affine, header=nifti_img.header)
-                img = self._deidentify_header(img)
-                
-                if data["file_name"][idx].endswith('.nii') or data["file_name"][idx].endswith('.nii.gz'):
-                    nib.save(img,
-                             f"{self.output_path}/{Path(Path(data['file_name'][idx]).stem).stem}_{self.stem}.nii.gz")
+                pred_volume = input_volume * (np.transpose(pred_numpy > 0.5, (1, 2, 0)))
+
+                if is_npy:
+                    out_path = Path(self.output_path) / f"{Path(Path(file_path).stem).stem}_{self.stem}.npy"
+                    np.save(out_path, pred_volume)
                 else:
-                    nifti2dcm(img, data["file_name"][idx],
-                              f"{self.output_path}")
+                    img = nib.Nifti1Image(pred_volume, affine=affine, header=header)
+                    img = self._deidentify_header(img)
+
+                    if is_nifti:
+                        nib.save(
+                            img,
+                            f"{self.output_path}/{Path(Path(file_path).stem).stem}_{self.stem}.nii.gz",
+                        )
+                    else:
+                        nifti2dcm(img, file_path, f"{self.output_path}")
 
                 end_time = time.time()
 
