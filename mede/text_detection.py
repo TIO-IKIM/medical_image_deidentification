@@ -1,5 +1,6 @@
 import pydicom
-import cv2 as cv
+from pydicom.encaps import encapsulate
+import cv2
 import numpy as np
 import os
 import pytesseract
@@ -24,9 +25,15 @@ class TextRemoval:
     """
 
     def __init__(self, output_path: str = None, verbose: bool = False) -> None:
-        self.output_path = output_path if output_path is not None else "./text_removed_images"
-        logging.info(f"Saving text removed image to {self.output_path}") if verbose else None
-        
+        self.output_path = (
+            output_path if output_path is not None else "./text_removed_images"
+        )
+        (
+            logging.info(f"Saving text removed image to {self.output_path}")
+            if verbose
+            else None
+        )
+
         os.makedirs(self.output_path, exist_ok=True)
 
     @staticmethod
@@ -48,7 +55,7 @@ class TextRemoval:
         height, width = img.shape[:2]
         left = int(width / 4)
         top = int(height / 4)
-        right = int(width/ 4)
+        right = int(width / 4)
         bottom = int(height / 4)
 
         img_covered = cv2.rectangle(
@@ -57,7 +64,7 @@ class TextRemoval:
         boxes = pytesseract.image_to_boxes(
             img_covered, output_type=pytesseract.Output.DICT, nice=1
         )
-        
+
         if not boxes:
             return img
 
@@ -115,17 +122,15 @@ class TextRemoval:
             match file_ending:
                 # nifti
                 case "png" | "jpg":
-                    img = cv.imread(filepath, 0)
+                    img = cv2.imread(filepath, 0)
                     base_fn = filepath[:-4]
                 case "jpeg":
-                    img = cv.imread(filepath, 0)
+                    img = cv2.imread(filepath, 0)
                     base_fn = filepath[:-5]
                 case "dcm":
                     dcm = pydicom.dcmread(filepath, force=True)
-                    img_orig = dcm.pixel_array
-                    img = np.array(
-                        Image.fromarray(img_orig).convert("RGB")
-                    )
+                    img_orig = pydicom.pixel_array(dcm)
+                    img = np.array(Image.fromarray(img_orig).convert("RGB"))
                     base_fn = filepath[:-4]
                 case "nii":
                     nifti = nib.load(filepath)
@@ -143,19 +148,31 @@ class TextRemoval:
                     raise NotImplementedError(
                         f"File ending {file_ending} not compatible, must be .dcm, .png, .jpg or .jpeg"
                     )
-                    
-            img = self.predict(img=img, img_orig=img_orig if 'img_orig' in locals() else None)
+
+            img = self.predict(
+                img=img, img_orig=img_orig if "img_orig" in locals() else None
+            )
 
             _output_path = os.path.join(
                 self.output_path, f"{Path(base_fn).name}_text_removed"
             )
 
             match file_ending:
-                # nifti
                 case "png" | "jpg" | "jpeg":
-                    cv.imwrite(f"{_output_path}.png", img)
+                    cv2.imwrite(f"{_output_path}.png", img)
                 case "dcm":
-                    dcm.PixelData = img.tobytes()
+                    # Check if the pixel data is compressed
+                    if (
+                        hasattr(dcm.file_meta, "TransferSyntaxUID")
+                        and dcm.file_meta.TransferSyntaxUID.is_compressed
+                    ):
+                        # Re-encapsulate the pixel data if compression is required
+                        dcm.PixelData = encapsulate([img.tobytes()])
+                        dcm.file_meta.TransferSyntaxUID = (
+                            pydicom.uid.ExplicitVRLittleEndian
+                        )
+                    else:
+                        dcm.PixelData = img.tobytes()
                     dcm.save_as(f"{_output_path}.dcm")
                 case "nii":
                     nifti = nib.Nifti1Image(img, nifti.affine)

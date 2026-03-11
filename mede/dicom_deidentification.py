@@ -10,17 +10,45 @@ https://www.dicomstandard.org/News-dir/ftsup/docs/sups/sup55.pdf
 (Table X.1-1)
 """
 import os.path
+import warnings
+from functools import lru_cache
 
-from deid.config import DeidRecipe
-from deid.dicom.parser import DicomParser
 import pydicom
 from pydicom.uid import generate_uid
 from pydicom.errors import InvalidDicomError
 from glob import glob
 import logging
 import multiprocessing as mp
-from typing import List
+from typing import Any, List
 import importlib.resources
+
+
+DEID_PYDICOM_WARNING = (
+    "The 'pydicom.pixel_data_handlers' module will be removed in v4.0, "
+    "please use 'from pydicom.pixels.utils import get_expected_length' instead"
+)
+
+
+@lru_cache(maxsize=1)
+def _load_deid() -> tuple[Any, Any]:
+    pydicom_logger = logging.getLogger("pydicom")
+    previous_level = pydicom_logger.level
+
+    try:
+        # deid imports a deprecated pydicom module on import in v0.4.12.
+        pydicom_logger.setLevel(max(previous_level, logging.ERROR))
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=DEID_PYDICOM_WARNING,
+                category=DeprecationWarning,
+            )
+            from deid.config import DeidRecipe
+            from deid.dicom.parser import DicomParser
+    finally:
+        pydicom_logger.setLevel(previous_level)
+
+    return DeidRecipe, DicomParser
 
 
 class DicomDeidentifier:
@@ -40,11 +68,13 @@ class DicomDeidentifier:
         :param recipe: path to our deid recipe.
         """
 
+        DeidRecipe, _ = _load_deid()
+
         recipe = [
             f"{importlib.resources.files('mede')}/dicom_deid/deid_options/{option}.dicom"
             for option in recipe
         ]
-        self.recipe: DeidRecipe = DeidRecipe(recipe)
+        self.recipe = DeidRecipe(recipe)
         self._processes: int = processes
         self._verbose: bool = verbose if verbose is not None else False
         self._out: str = out_path
@@ -57,6 +87,8 @@ class DicomDeidentifier:
         :param dataset: dataset that will be pseudonymized
         :returns: pseudonymized dataset
         """
+        _, DicomParser = _load_deid()
+
         if os.path.isfile(dataset):
             new_name = dataset.split(os.path.sep)[-1].split('.')[0] + "_deidentified.dcm"
             try:
@@ -94,6 +126,8 @@ class DicomDeidentifier:
 
     @staticmethod
     def _deidentify(dcm_file: str, recipe, out, func):
+        _, DicomParser = _load_deid()
+
         if os.path.isdir(dcm_file):
             return
         filename = dcm_file.split(os.path.sep)[-1]

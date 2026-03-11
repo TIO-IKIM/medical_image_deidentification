@@ -69,21 +69,23 @@ class WSIDeidentifier:
         if "LABEL" in dcm[0x0008, 0x0008].value:
             dcm = pydicom.dcmread(dcm_file)
             try:
-                dcm.PixelData = np.zeros_like(dcm.pixel_array).tobytes()
+                dcm.PixelData = np.zeros_like(pydicom.pixel_array(dcm)).tobytes()
                 dcm.save_as(os.path.join(out, Path(dcm_file).name))
                 if verbose:
                     logging.info(f"Label file anonymized!")
             except:
-                logging.info("Label file does not contain pixel array, remove file instead of overwriting ...")
+                logging.info(
+                    "Label file does not contain pixel array, remove file instead of overwriting ..."
+                )
                 if os.path.exists(os.path.join(out, Path(dcm_file).name)):
-                   os.remove(os.path.join(out, Path(dcm_file).name))
+                    os.remove(os.path.join(out, Path(dcm_file).name))
 
         # Anonymize overview
         elif "OVERVIEW" in dcm[0x0008, 0x0008].value:
             dcm = pydicom.dcmread(dcm_file)
-            dcm.pixel_array[:, :250, :] = 0
+            pydicom.pixel_array(dcm)[:, :250, :] = 0
             dcm.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
-            dcm.PixelData = dcm.pixel_array.tobytes()
+            dcm.PixelData = pydicom.pixel_array(dcm).tobytes()
             dcm.save_as(os.path.join(out, Path(dcm_file).name))
             if verbose:
                 logging.info(f"Overview file anonymized!")

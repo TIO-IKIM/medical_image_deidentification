@@ -15,6 +15,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+
 def main():
     """Main function to run the deidentification process."""
     parser = argparse.ArgumentParser(
@@ -166,6 +167,7 @@ def main():
         txt_removal = TextRemoval(output_path=args.output, verbose=args.verbose)
         txt_removal(_input)
         _input = _out
-        
+
+
 if __name__ == "__main__":
     main()

@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import numpy as np
 import pydicom
+from pydicom.encaps import encapsulate
 import nibabel as nib
 import torchio as tio
 from collections import defaultdict
@@ -53,7 +54,7 @@ def prepare_slices(fp: str) -> np.array:
     Returns:
         np.array: The pixel array of the DICOM file.
     """
-    return pydicom.dcmread(fp).pixel_array
+    return pydicom.pixel_array(pydicom.dcmread(fp))
 
 
 def order_slices(fp: str) -> int:
@@ -101,8 +102,14 @@ def create_affine(sorted_dicoms: list) -> np.matrix:
         image_pos = np.array([0, 0, 0])
         last_image_pos = np.array([0, 0, 0])
 
-    delta_r = float(dicom_first.PixelSpacing[0])
-    delta_c = float(dicom_first.PixelSpacing[1])
+    try:
+        delta_r = float(dicom_first.PixelSpacing[0])
+        delta_c = float(dicom_first.PixelSpacing[1])
+    except AttributeError:
+        logging.warning(
+            "PixelSpacing not found in DICOM metadata. Using default spacing of 1.0."
+        )
+        delta_r = delta_c = 1.0
 
     if len(sorted_dicoms) == 1:
         # Single slice
@@ -173,6 +180,17 @@ def dcm2nifti(dir_path: str, transpose: bool = False) -> nib.Nifti1Image:
 
         slices = [prepare_slices(f) for f in files]
         volume = np.array(slices)
+
+        # Check if the data has an additional color channel (e.g., RGB data)
+        if volume.ndim == 4:
+            # TO-DO: Implement full support of RGB. This needs a new model architecture and training. For now transform into greyscale.
+            # volume = np.transpose(volume, (3, 2, 1, 0))
+            logging.warning(
+                "RGB DICOM data detected. This is currently not supported. Converting into greyscale."
+            )
+            # Transform RGB data into grayscale by averaging the color channels
+            volume = np.mean(volume, axis=-1)
+
         volume = np.transpose(volume, (2, 1, 0))
 
         nifti = nib.Nifti1Image(volume, affine)
@@ -250,7 +268,18 @@ def nifti2dcm(nifti_file: nib.Nifti1Image, dcm_dir: str, out_dir: str) -> None:
         if len(n_slices) != 1:
             dcm_dir = f"slice{slice_}.dcm"
         dcm = pydicom.dcmread(files[slice_], stop_before_pixels=False)
-        dcm.PixelData = (nifti_array[slice_, ...]).astype(np.uint16).tobytes()
+        # Check if the pixel data is compressed
+        if (
+            hasattr(dcm.file_meta, "TransferSyntaxUID")
+            and dcm.file_meta.TransferSyntaxUID.is_compressed
+        ):
+            # Re-encapsulate the pixel data if compression is required
+            dcm.PixelData = encapsulate(
+                [(nifti_array[slice_, ...]).astype(np.uint16).tobytes()]
+            )
+            dcm.file_meta.TransferSyntaxUID = pydicom.uid.ExplicitVRLittleEndian
+        else:
+            dcm.PixelData = (nifti_array[slice_, ...]).astype(np.uint16).tobytes()
         dcm.save_as(os.path.join(out_dir, dcm_dir.split("/")[-1]))
 
 
@@ -564,7 +593,7 @@ def extract_volumes_from_enhanced_dicom(
 
     if not hasattr(dcm, "NumberOfFrames"):
         # Single frame, treat as single volume
-        volume = dcm.pixel_array
+        volume = pydicom.pixel_array(dcm)
         if volume.ndim == 2:
             volume = volume[np.newaxis, ...]
         affine = create_affine_enhanced(dcm, frame_indices=[0])
@@ -572,7 +601,7 @@ def extract_volumes_from_enhanced_dicom(
         return [resample(nifti)], dcm
 
     num_frames = int(dcm.NumberOfFrames)
-    pixel_array = dcm.pixel_array
+    pixel_array = pydicom.pixel_array(dcm)
 
     # Group frames by volume using metadata
     volume_groups = group_frames_by_volume(dcm, num_frames)
@@ -854,7 +883,7 @@ def reconstruct_enhanced_dicom_from_niftis(
             all_frames.append(data[slice_idx, ...])
     new_pixel_array = np.array(all_frames)
 
-    new_pixel_array = new_pixel_array.astype(dcm.pixel_array.dtype)
+    new_pixel_array = new_pixel_array.astype(pydicom.pixel_array(dcm).dtype)
     dcm.PixelData = new_pixel_array.tobytes()
 
     dcm.save_as(f"{output_path}/{original_dcm_path.split('/')[-1]}")
