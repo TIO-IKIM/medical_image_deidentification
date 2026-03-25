@@ -10,6 +10,7 @@ from mede.dicom_deidentification import DicomDeidentifier
 from mede.text_detection import TextRemoval
 from mede.wsi_deidentification import WSIDeidentifier
 from mede.twix_deidentification import anonymize_twix
+from mede.rename import Rename
 import torch
 import logging
 
@@ -84,6 +85,14 @@ def main():
         default=False,
         action=argparse.BooleanOptionalAction,
         help="Anonymize WSI label and overview file.",
+    )
+    parser.add_argument(
+        "-r",
+        "--rename",
+        required=False,
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Rename files to UUIDs, preserving slice order for series.",
     )
     parser.add_argument(
         "-p",
@@ -168,6 +177,9 @@ def main():
         txt_removal(_input)
         _input = _out
 
+    if args.rename:
+        rename = Rename(input_path=args.input, output_path=args.output)
+        rename()
 
 if __name__ == "__main__":
     main()
