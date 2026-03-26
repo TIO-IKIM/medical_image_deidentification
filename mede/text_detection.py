@@ -3,7 +3,7 @@ from pydicom.encaps import encapsulate
 import cv2
 import numpy as np
 import os
-import pytesseract
+import easyocr
 from glob import glob
 import nibabel as nib
 from PIL import Image
@@ -13,94 +13,65 @@ import logging
 
 class TextRemoval:
     """
-    Class for performing text removal on images.
+    Class for performing text removal on images using EasyOCR (CRAFT Text Detection).
 
     Attributes:
         output_path (str): Path to save the output images.
         verbose (bool): If True, enables verbose logging.
+        reader (easyocr.Reader): The deep learning OCR model initialized in memory.
 
     Methods:
         predict: Apply text removal algorithm to an image.
         __call__: Apply text removal to a directory of images.
     """
 
-    def __init__(self, output_path: str = None, verbose: bool = False) -> None:
+    def __init__(self, output_path: str = None, verbose: bool = False, langs: list = ['en']) -> None:
         self.output_path = (
             output_path if output_path is not None else "./text_removed_images"
         )
-        (
-            logging.info(f"Saving text removed image to {self.output_path}")
-            if verbose
-            else None
-        )
+        if verbose:
+            logging.getLogger().setLevel(logging.INFO)
+            logging.info(f"Saving text removed images to {self.output_path}")
 
         os.makedirs(self.output_path, exist_ok=True)
+        
+        # Initialize the EasyOCR reader once to keep the model in memory.
+        # It will automatically use a GPU if CUDA is available.
+        self.reader = easyocr.Reader(langs, gpu=True)
+    
+    def predict(self, img: np.array, img_orig: np.array = None) -> np.array:
+        if len(img.shape) == 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
-    @staticmethod
-    def predict(img: np.array, img_orig: np.array = None) -> np.array:
-        """
-        Apply text removal algorithm (tesseract) to an image.
+        target_img = img_orig if img_orig is not None else img.copy()
+        
+        # --- PASS 1: Normal Scale ---
+        results_normal = self.reader.readtext(img)
+        
+        # --- PASS 2: Downscaled for detection of big characters / numbers ---
+        results_shrunk = self.reader.readtext(img, mag_ratio=0.1, text_threshold=0.5)
+        
+        # Combine results
+        all_results = results_normal + results_shrunk
 
-        Args:
-            img (np.array): Input image as a NumPy array.
-            img_orig (np.array, optional): Original image to use for reference. Defaults to None.
+        # Draw rectangles
+        for bbox, text, prob in all_results:
+            xs = [int(point[0]) for point in bbox]
+            ys = [int(point[1]) for point in bbox]
 
-        Returns:
-            np.array: Image with text removed.
-        """
+            left, right = min(xs), max(xs)
+            top, bottom = min(ys), max(ys)
 
-        threshold = 100
-
-        # Insert rectangle in middle of image to ignore this part in the first iteration
-        height, width = img.shape[:2]
-        left = int(width / 4)
-        top = int(height / 4)
-        right = int(width / 4)
-        bottom = int(height / 4)
-
-        img_covered = cv2.rectangle(
-            img.copy(), (left, top), (right, bottom), (255, 255, 255), -1
-        )
-        boxes = pytesseract.image_to_boxes(
-            img_covered, output_type=pytesseract.Output.DICT, nice=1
-        )
-
-        if not boxes:
-            return img
-
-        for left, bottom, right, top in zip(
-            boxes["left"], boxes["bottom"], boxes["right"], boxes["top"]
-        ):
-            if right - left < threshold:
-                img = cv2.rectangle(
-                    img_orig if img_orig is not None else img,
-                    (left, height - bottom),
-                    (right, height - top),
-                    (255, 255, 255),
-                    -1,
-                )
-
-        # Another iteration without the rectangle in the middle of the image
-        try:
-            boxes = pytesseract.image_to_boxes(
-                img, output_type=pytesseract.Output.DICT, nice=1
+            padding = 3
+            target_img = cv2.rectangle(
+                target_img,
+                (max(0, left - padding), max(0, top - padding)),
+                (right + padding, bottom + padding),
+                (255, 255, 255),
+                -1,
             )
 
-            for left, bottom, right, top in zip(
-                boxes["left"], boxes["bottom"], boxes["right"], boxes["top"]
-            ):
-                if right - left < threshold:
-                    img = cv2.rectangle(
-                        img,
-                        (left, height - bottom),
-                        (right, height - top),
-                        (255, 255, 255),
-                        -1,
-                    )
-        except:
-            pass
-
-        return img
+        return target_img
 
     def __call__(self, directory: str) -> None:
         """
@@ -112,54 +83,89 @@ class TextRemoval:
         Returns:
             None
         """
-
         if os.path.isdir(directory):
             files = glob(os.path.join(directory, "**", "*"), recursive=True)
         else:
             files = [directory]
+            
         for filepath in files:
+            # Skip directories
+            if os.path.isdir(filepath):
+                continue
+                
+            img_orig = None
             file_ending = filepath.split(".")[-1].lower()
+            
             match file_ending:
-                # nifti
                 case "png" | "jpg":
-                    img = cv2.imread(filepath, 0)
+                    img = cv2.imread(filepath, cv2.IMREAD_UNCHANGED)
+                    img_was_greyscale = len(img.shape) == 2 or (
+                        len(img.shape) == 3 and img.shape[2] == 1
+                    )
                     base_fn = filepath[:-4]
                 case "jpeg":
-                    img = cv2.imread(filepath, 0)
+                    img = cv2.imread(filepath, cv2.IMREAD_UNCHANGED)
+                    img_was_greyscale = len(img.shape) == 2 or (
+                        len(img.shape) == 3 and img.shape[2] == 1
+                    )
                     base_fn = filepath[:-5]
                 case "dcm":
                     dcm = pydicom.dcmread(filepath, force=True)
                     img_orig = pydicom.pixel_array(dcm)
-                    img = np.array(Image.fromarray(img_orig).convert("RGB"))
+                    img_was_greyscale = len(img_orig.shape) == 2 or (
+                        len(img_orig.shape) == 3 and img_orig.shape[2] == 1
+                    )
+                    img = np.array(
+                        Image.fromarray(img_orig).convert(
+                            "L" if img_was_greyscale else "RGB"
+                        )
+                    )
                     base_fn = filepath[:-4]
                 case "nii":
                     nifti = nib.load(filepath)
+                    nii_data = nifti.get_fdata().squeeze()
+                    img_was_greyscale = len(nii_data.shape) == 2 or (
+                        len(nii_data.shape) == 3 and nii_data.shape[2] == 1
+                    )
                     img = np.array(
-                        Image.fromarray(nifti.get_fdata().squeeze()).convert("RGB")
+                        Image.fromarray(nii_data).convert(
+                            "L" if img_was_greyscale else "RGB"
+                        )
                     )
                     base_fn = filepath[:-4]
                 case "gz":
                     nifti = nib.load(filepath)
+                    nii_data = nifti.get_fdata().squeeze()
+                    img_was_greyscale = len(nii_data.shape) == 2 or (
+                        len(nii_data.shape) == 3 and nii_data.shape[2] == 1
+                    )
                     img = np.array(
-                        Image.fromarray(nifti.get_fdata().squeeze()).convert("RGB")
+                        Image.fromarray(nii_data).convert(
+                            "L" if img_was_greyscale else "RGB"
+                        )
                     )
                     base_fn = filepath[:-7]
                 case _:
-                    raise NotImplementedError(
-                        f"File ending {file_ending} not compatible, must be .dcm, .png, .jpg or .jpeg"
-                    )
+                    # Skip unhandled file extensions gracefully
+                    continue
 
             img = self.predict(
-                img=img, img_orig=img_orig if "img_orig" in locals() else None
+                img=img, img_orig=img_orig if "img_orig" in locals() and img_orig is not None else None
             )
+
+            # Convert back to greyscale if the input was greyscale
+            if img_was_greyscale and len(img.shape) == 3:
+                img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
             _output_path = os.path.join(
                 self.output_path, f"{Path(base_fn).name}_text_removed"
             )
 
             match file_ending:
-                case "png" | "jpg" | "jpeg":
+                case "png":
                     cv2.imwrite(f"{_output_path}.png", img)
+                case "jpg" | "jpeg":
+                    cv2.imwrite(f"{_output_path}.jpg", img)
                 case "dcm":
                     # Check if the pixel data is compressed
                     if (
@@ -168,9 +174,7 @@ class TextRemoval:
                     ):
                         # Re-encapsulate the pixel data if compression is required
                         dcm.PixelData = encapsulate([img.tobytes()])
-                        dcm.file_meta.TransferSyntaxUID = (
-                            pydicom.uid.ExplicitVRLittleEndian
-                        )
+                        dcm.file_meta.TransferSyntaxUID = pydicom.uid.ExplicitVRLittleEndian
                     else:
                         dcm.PixelData = img.tobytes()
                     dcm.save_as(f"{_output_path}.dcm")
