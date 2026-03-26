@@ -37,6 +37,13 @@ def main():
         action=argparse.BooleanOptionalAction,
     )
     parser.add_argument(
+        "--refine",
+        required=False,
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Enable interactive refinement of text removal results.",
+    )
+    parser.add_argument(
         "-i",
         "--input",
         required=False,
@@ -173,7 +180,7 @@ def main():
         _input = _out
 
     if args.text_removal:
-        txt_removal = TextRemoval(output_path=args.output, verbose=args.verbose)
+        txt_removal = TextRemoval(output_path=args.output, verbose=args.verbose, interactive=args.refine)
         txt_removal(_input)
         _input = _out
 

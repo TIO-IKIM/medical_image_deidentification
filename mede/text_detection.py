@@ -19,16 +19,18 @@ class TextRemoval:
         output_path (str): Path to save the output images.
         verbose (bool): If True, enables verbose logging.
         reader (easyocr.Reader): The deep learning OCR model initialized in memory.
+        interactive (bool): If True, enables interactive refinement of the output images.
 
     Methods:
         predict: Apply text removal algorithm to an image.
         __call__: Apply text removal to a directory of images.
     """
 
-    def __init__(self, output_path: str = None, verbose: bool = False, langs: list = ['en']) -> None:
+    def __init__(self, output_path: str = None, verbose: bool = False, langs: list = ['en'], interactive: bool = False) -> None:
         self.output_path = (
             output_path if output_path is not None else "./text_removed_images"
         )
+        self.interactive = interactive
         if verbose:
             logging.getLogger().setLevel(logging.INFO)
             logging.info(f"Saving text removed images to {self.output_path}")
@@ -72,6 +74,70 @@ class TextRemoval:
             )
 
         return target_img
+
+    def refine_image(self, img: np.array, window_name: str = "Interactive Refinement") -> np.array:
+        """
+        Opens an interactive OpenCV window to let the user manually draw white rectangles 
+        over remaining text/artifacts.
+
+        Args:
+            img (np.array): The image to refine.
+            window_name (str): The name of the OpenCV window.
+
+        Returns:
+            np.array: The manually refined image.
+        """
+        # Create copies so we can reset if the user makes a mistake
+        original_clone = img.copy()
+        display_img = img.copy()
+        
+        # State variables for mouse tracking
+        drawing = False
+        ix, iy = -1, -1
+
+        def draw_rectangle(event, x, y, flags, param):
+            nonlocal ix, iy, drawing, img, display_img
+
+            if event == cv2.EVENT_LBUTTONDOWN:
+                drawing = True
+                ix, iy = x, y
+
+            elif event == cv2.EVENT_MOUSEMOVE:
+                if drawing:
+                    # Draw on a temporary copy so we see the box expanding as we drag
+                    display_img = img.copy()
+                    cv2.rectangle(display_img, (ix, iy), (x, y), (255, 255, 255), -1)
+
+            elif event == cv2.EVENT_LBUTTONUP:
+                drawing = False
+                # Commit the rectangle to the actual image
+                cv2.rectangle(img, (ix, iy), (x, y), (255, 255, 255), -1)
+                display_img = img.copy()
+
+        # Set up OpenCV window and attach mouse listener
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL) # WINDOW_NORMAL allows resizing
+        cv2.setMouseCallback(window_name, draw_rectangle)
+
+        print(f"\n--- Refinement Mode: {window_name} ---")
+        print("1. Click and drag to draw white boxes over artifacts.")
+        print("2. Press 'r' to RESET the image if you make a mistake.")
+        print("3. Press 'Enter' or 'Space' to SAVE and continue to the next image.")
+
+        while True:
+            cv2.imshow(window_name, display_img)
+            key = cv2.waitKey(1) & 0xFF
+
+            # Press Enter (13) or Space (32) to confirm and exit
+            if key in [13, 32]: 
+                break
+            # Press 'r' to reset
+            elif key == ord('r'):
+                print("Image reset.")
+                img = original_clone.copy()
+                display_img = original_clone.copy()
+
+        cv2.destroyWindow(window_name)
+        return img
 
     def __call__(self, directory: str) -> None:
         """
@@ -146,12 +212,15 @@ class TextRemoval:
                     )
                     base_fn = filepath[:-7]
                 case _:
-                    # Skip unhandled file extensions gracefully
                     continue
 
             img = self.predict(
                 img=img, img_orig=img_orig if "img_orig" in locals() and img_orig is not None else None
             )
+
+            # Optional manual refinement step for any remaining text/artifacts
+            if self.interactive:
+                img = self.refine_image(img, window_name=f"Refining: {Path(base_fn).name}")
 
             # Convert back to greyscale if the input was greyscale
             if img_was_greyscale and len(img.shape) == 3:
