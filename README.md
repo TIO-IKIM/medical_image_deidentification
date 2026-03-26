@@ -59,7 +59,23 @@ pip install mede
 
 #### Additional Dependencies for Text Removal
 
-If you want to use the text removal feature, you also need to install Google's Tesseract OCR engine. Follow the installation instructions for your operating system [here](https://tesseract-ocr.github.io/tessdoc/Installation.html).
+> [!WARNING]  
+> Since version 0.0.11 we use [EasyOCR](https://github.com/JaidedAI/EasyOCR) instead of Tesseract for text removal. If you want to use the text removal feature, you need to install EasyOCR and its dependencies. EasyOCR is installed automatically with the newer version of MEDE.
+
+We also implement a manual text removal feature that can be used to remove any remaining text from the images. This feature is optional and can be enabled with the additional `--refine` flag. 
+This will open an interactive window where you can manually select any remaining text/artifacts and remove them by drawing a bounding box around them. 
+
+To draw a bounding box, click and hold the left mouse button, drag to create a rectangle around the text/artifact you want to remove, and then release the mouse button. The selected area will be filled with black pixels to effectively remove the text/artifact from the image.
+
+To reset the image to its original state, press the `r` key while the interactive window is open. 
+
+To save the changes, press `space` or `enter`. 
+
+---
+
+The following installation is only necessary if you want to use the old text removal feature and have an older version of MEDE installed:
+
+If you want to use the old text removal feature, you also need to install Google's Tesseract OCR engine. Follow the installation instructions for your operating system [here](https://tesseract-ocr.github.io/tessdoc/Installation.html).
 
 - **On Ubuntu**:
   ```bash
@@ -121,7 +137,6 @@ mede-deidentify [-h] [-v | --verbose] [-t | --text-removal] [-i | --input]
 |------------|-----------------------------------------------------------------------------------------------------|
 | `-h, --help` | Show the help message and exit.                                                                    |
 | `-v, --verbose` | Enable verbose output.                                                 |
-| `-t, --text-removal` | Perform text removal.                                          |
 | `-i INPUT, --input INPUT` | Path to the input data.                                                               |
 | `-o OUTPUT, --output OUTPUT` | Path to save the output data.                                                      |
 | `--gpu GPU` | Specify the GPU device number (default: `0`).                                                       |
@@ -129,6 +144,8 @@ mede-deidentify [-h] [-v | --verbose] [-t | --text-removal] [-i | --input]
 | `-de, --deface` | Perform defacing.                                                                                |
 | `-tw, --twix` | Process MRI raw data (twix format) and anonymize metadata.                                                               |
 | `-w, --wsi` | Process Whole Slide Images (WSI).                                                                   |
+| `-t, --text-removal` | Perform text removal.                                          |
+| `--refine` | Enable interactive refinement of text removal results.                                          |
 | `-r, --rename` | Rename files during processing.                                                                  |
 | `-p PROCESSES, --processes PROCESSES` | Number of processes to use for multiprocessing.                            |
 | `-d, --deidentification-profile` | Specify one or more DICOM deidentification profiles to apply (see below).       |
@@ -190,4 +207,3 @@ If you use our tool in your work, please cite us with the following BibTeX entry
   publisher={Springer}
 }
 ```
-
