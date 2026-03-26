@@ -60,7 +60,7 @@ pip install mede
 #### Additional Dependencies for Text Removal
 
 > [!WARNING]  
-> Since version 0.0.11 we use EasyOCR instead of Tesseract for text removal. If you want to use the text removal feature, you need to install EasyOCR and its dependencies. EasyOCR is installed automatically with the newer version of MEDE.
+> Since version 0.0.11 we use [EasyOCR](https://github.com/JaidedAI/EasyOCR) instead of Tesseract for text removal. If you want to use the text removal feature, you need to install EasyOCR and its dependencies. EasyOCR is installed automatically with the newer version of MEDE.
 
 The following installation is only necessary if you want to use the old text removal feature and have an older version of MEDE installed:
 
