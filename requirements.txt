@@ -14,3 +14,4 @@ torchio
 torchvision
 tqdm
 safetensors==0.5.3
+easyocr==1.7.2
