@@ -59,7 +59,12 @@ pip install mede
 
 #### Additional Dependencies for Text Removal
 
-If you want to use the text removal feature, you also need to install Google's Tesseract OCR engine. Follow the installation instructions for your operating system [here](https://tesseract-ocr.github.io/tessdoc/Installation.html).
+> [!WARNING]  
+> Since version 0.0.11 we use EasyOCR instead of Tesseract for text removal. If you want to use the text removal feature, you need to install EasyOCR and its dependencies. EasyOCR is installed automatically with the newer version of MEDE.
+
+The following installation is only necessary if you want to use the old text removal feature and have an older version of MEDE installed:
+
+If you want to use the old text removal feature, you also need to install Google's Tesseract OCR engine. Follow the installation instructions for your operating system [here](https://tesseract-ocr.github.io/tessdoc/Installation.html).
 
 - **On Ubuntu**:
   ```bash
