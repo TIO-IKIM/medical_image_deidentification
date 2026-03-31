@@ -90,7 +90,9 @@ class Rename:
         if series_uuid_map is None:
             series_uuid_map = {}
 
-        base_name, extension = os.path.splitext(old_name)
+        name_parts = old_name.rsplit('.', 2)
+        base_name = name_parts[0]
+        extension = ''.join('.' + part for part in name_parts[1:]) if len(name_parts) > 1 else ''
         match = self.slice_pattern.match(base_name)
 
         if match:
