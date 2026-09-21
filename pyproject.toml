@@ -1,46 +1,49 @@
 [build-system]
-requires = ["hatchling >= 1.26"]
+requires = ["hatchling >= 1.26, < 2"]
 build-backend = "hatchling.build"
 
 [project]
 name = "mede"
-version = "0.0.12"
+version = "0.0.13"
 authors = [
   {name="Moritz Rempe & Lukas Heine", email="moritz.rempe@uk-essen.de"},
 ]
 description = "De-Identification of Medical Imaging Data: A Comprehensive Tool for Ensuring Patient Privacy"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10,<3.13"
 
 dependencies = [
-  "scikit-image",
-  "deid",
-  "nibabel",
+  "scikit-image>=0.24,<0.25",
+  "deid==0.4.12",
+  "nibabel>=5.2,<6",
   "numpy==1.26.4",
-  "opencv_python_headless",
-  "pandas",
-  "Pillow",
+  "opencv-python-headless>=4.9,<5",
+  "pandas>=2,<3",
+  "Pillow>=10.4,<11",
   "pydicom==3.0.1",
-  "pytesseract",
-  "PyYAML",
+  "PyYAML>=6,<7",
   "timm==1.0.7",
   "torch==2.2.2",
-  "torchio",
-  "torchvision",
-  "tqdm",
+  "torchvision==0.17.2",
+  "torchio>=0.19,<0.20",
+  "tqdm>=4.66,<5",
   "safetensors==0.5.3",
   "easyocr==1.7.2",
+  "torchmetrics>=1.3,<2",
+  "matplotlib>=3.7,<4",
+  "prettytable>=3.9,<4",
 ]
 
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
 ]
-license = "MIT"
+license = "Apache-2.0"
 license-files = ["LICEN[CS]E*"]
-
-package-data = { "mede" = ["models/*.pth", "dicom_deid/*"] }
 
 [project.urls]
 Homepage = "https://github.com/TIO-IKIM/medical_image_deidentification"
@@ -48,3 +51,14 @@ Issues = "https://github.com/TIO-IKIM/medical_image_deidentification/issues"
 
 [project.scripts]
 mede-deidentify = "mede.deidentify:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mede"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/mede",
+  "/README.md",
+  "/LICENSE",
+  "/pyproject.toml",
+]

@@ -3,6 +3,7 @@ import shutil
 import csv
 import uuid
 import re
+from pathlib import Path
 
 class Rename:
     """
@@ -90,9 +91,9 @@ class Rename:
         if series_uuid_map is None:
             series_uuid_map = {}
 
-        name_parts = old_name.rsplit('.', 2)
-        base_name = name_parts[0]
-        extension = ''.join('.' + part for part in name_parts[1:]) if len(name_parts) > 1 else ''
+        path = Path(old_name)
+        extension = ''.join(path.suffixes)
+        base_name = path.name[:-len(extension)] if extension else path.name
         match = self.slice_pattern.match(base_name)
 
         if match:

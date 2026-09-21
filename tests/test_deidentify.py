@@ -11,41 +11,14 @@ def _create_torch_stub() -> types.ModuleType:
         cudnn=types.SimpleNamespace(benchmark=False, allow_tf32=False),
         cuda=types.SimpleNamespace(matmul=types.SimpleNamespace(allow_tf32=False)),
     )
-    torch_stub.autograd = types.SimpleNamespace(set_detect_anomaly=lambda *_args: None)
-    torch_stub.set_num_threads = lambda *_args: None
+    torch_stub.autograd = types.SimpleNamespace(set_detect_anomaly=MagicMock())
+    torch_stub.set_num_threads = MagicMock()
     return torch_stub
 
 
 def _load_deidentify_module():
     sys.modules.pop("mede.deidentify", None)
-
-    skullstrip_stub = types.ModuleType("mede.dicom_skullstrip_defacing")
-    skullstrip_stub.Inference = object
-
-    dicom_stub = types.ModuleType("mede.dicom_deidentification")
-    dicom_stub.DicomDeidentifier = object
-
-    text_stub = types.ModuleType("mede.text_detection")
-    text_stub.TextRemoval = object
-
-    wsi_stub = types.ModuleType("mede.wsi_deidentification")
-    wsi_stub.WSIDeidentifier = object
-
-    twix_stub = types.ModuleType("mede.twix_deidentification")
-    twix_stub.anonymize_twix = lambda *_args: None
-
-    with patch.dict(
-        sys.modules,
-        {
-            "torch": _create_torch_stub(),
-            "mede.dicom_skullstrip_defacing": skullstrip_stub,
-            "mede.dicom_deidentification": dicom_stub,
-            "mede.text_detection": text_stub,
-            "mede.wsi_deidentification": wsi_stub,
-            "mede.twix_deidentification": twix_stub,
-        },
-    ):
-        return importlib.import_module("mede.deidentify")
+    return importlib.import_module("mede.deidentify")
 
 
 class TestDeidentifyCLI(unittest.TestCase):
@@ -61,6 +34,29 @@ class TestDeidentifyCLI(unittest.TestCase):
         skullstrip_instance = MagicMock()
         deface_instance = MagicMock()
         text_instance = MagicMock()
+
+        torch_stub = _create_torch_stub()
+        dicom_stub = types.ModuleType("mede.dicom_deidentification")
+        dicom_cls = MagicMock(return_value=dicom_instance)
+        dicom_stub.DicomDeidentifier = dicom_cls
+
+        wsi_stub = types.ModuleType("mede.wsi_deidentification")
+        wsi_cls = MagicMock(return_value=wsi_instance)
+        wsi_stub.WSIDeidentifier = wsi_cls
+
+        skullstrip_stub = types.ModuleType("mede.dicom_skullstrip_defacing")
+        inference_cls = MagicMock(
+            side_effect=[skullstrip_instance, deface_instance]
+        )
+        skullstrip_stub.Inference = inference_cls
+
+        text_stub = types.ModuleType("mede.text_detection")
+        text_cls = MagicMock(return_value=text_instance)
+        text_stub.TextRemoval = text_cls
+
+        twix_stub = types.ModuleType("mede.twix_deidentification")
+        anonymize_twix = MagicMock()
+        twix_stub.anonymize_twix = anonymize_twix
 
         argv = [
             "deidentify.py",
@@ -83,30 +79,24 @@ class TestDeidentifyCLI(unittest.TestCase):
             "rtnUIDsOpt",
         ]
 
-        with (
-            patch.object(sys, "argv", argv),
-            patch.object(deidentify, "DicomDeidentifier", return_value=dicom_instance) as dicom_cls,
-            patch.object(deidentify, "WSIDeidentifier", return_value=wsi_instance) as wsi_cls,
-            patch.object(
-                deidentify,
-                "Inference",
-                side_effect=[skullstrip_instance, deface_instance],
-            ) as inference_cls,
-            patch.object(deidentify, "TextRemoval", return_value=text_instance) as text_cls,
-            patch.object(deidentify, "anonymize_twix") as anonymize_twix,
-            patch.object(
-                deidentify.torch.autograd,
-                "set_detect_anomaly",
-            ) as set_detect_anomaly,
-            patch.object(deidentify.torch, "set_num_threads") as set_num_threads,
-        ):
+        with patch.dict(
+            sys.modules,
+            {
+                "torch": torch_stub,
+                "mede.dicom_deidentification": dicom_stub,
+                "mede.dicom_skullstrip_defacing": skullstrip_stub,
+                "mede.text_detection": text_stub,
+                "mede.wsi_deidentification": wsi_stub,
+                "mede.twix_deidentification": twix_stub,
+            },
+        ), patch.object(sys, "argv", argv):
             deidentify.main()
 
-        self.assertTrue(deidentify.torch.backends.cudnn.benchmark)
-        self.assertTrue(deidentify.torch.backends.cudnn.allow_tf32)
-        self.assertTrue(deidentify.torch.backends.cuda.matmul.allow_tf32)
-        set_detect_anomaly.assert_called_once_with(True)
-        set_num_threads.assert_called_once_with(4)
+        self.assertTrue(torch_stub.backends.cudnn.benchmark)
+        self.assertTrue(torch_stub.backends.cudnn.allow_tf32)
+        self.assertTrue(torch_stub.backends.cuda.matmul.allow_tf32)
+        torch_stub.autograd.set_detect_anomaly.assert_called_once_with(True)
+        torch_stub.set_num_threads.assert_called_once_with(4)
 
         dicom_cls.assert_called_once_with(
             ["basicProfile", "rtnUIDsOpt"],
@@ -130,7 +120,9 @@ class TestDeidentifyCLI(unittest.TestCase):
 
         anonymize_twix.assert_called_once_with("output_dir", "output_dir")
 
-        text_cls.assert_called_once_with(output_path="output_dir", verbose=True)
+        text_cls.assert_called_once_with(
+            output_path="output_dir", verbose=True, interactive=False
+        )
         text_instance.assert_called_once_with("output_dir")
 
     def test_no_profile_logs_info_and_skips_metadata_anonymization(self):
@@ -138,24 +130,14 @@ class TestDeidentifyCLI(unittest.TestCase):
 
         argv = ["deidentify.py", "--input", "input_file", "--output", "output_dir"]
 
-        with (
-            patch.object(sys, "argv", argv),
-            patch.object(deidentify, "DicomDeidentifier") as dicom_cls,
-            patch.object(deidentify, "WSIDeidentifier") as wsi_cls,
-            patch.object(deidentify, "Inference") as inference_cls,
-            patch.object(deidentify, "TextRemoval") as text_cls,
-            patch.object(deidentify, "anonymize_twix") as anonymize_twix,
-            patch.object(deidentify.logging, "info") as log_info,
-            patch.object(deidentify.torch, "set_num_threads") as set_num_threads,
-        ):
+        with patch.object(sys, "argv", argv), patch.object(
+            deidentify.logging, "info"
+        ) as log_info:
             deidentify.main()
 
-        dicom_cls.assert_not_called()
-        wsi_cls.assert_not_called()
-        inference_cls.assert_not_called()
-        text_cls.assert_not_called()
-        anonymize_twix.assert_not_called()
-        set_num_threads.assert_called_once_with(1)
+        self.assertNotIn("torch", sys.modules)
+        self.assertNotIn("mede.dicom_deidentification", sys.modules)
+        self.assertNotIn("mede.wsi_deidentification", sys.modules)
         log_info.assert_called_once_with(
             "No DICOM deidentification profile specified. No Metadata anonymization will be performed!"
         )
@@ -173,14 +155,46 @@ class TestDeidentifyCLI(unittest.TestCase):
             "--no-skull_strip",
         ]
 
-        with (
-            patch.object(sys, "argv", argv),
-            patch.object(deidentify, "Inference") as inference_cls,
-            patch.object(deidentify.logging, "info"),
+        with patch.object(sys, "argv", argv), patch.object(
+            deidentify.logging, "info"
         ):
             deidentify.main()
 
-        inference_cls.assert_not_called()
+        self.assertNotIn("torch", sys.modules)
+        self.assertNotIn("mede.dicom_skullstrip_defacing", sys.modules)
+
+    def test_help_does_not_import_optional_dependencies(self):
+        deidentify = self.deidentify
+        optional_modules = [
+            "torch",
+            "numpy",
+            "pydicom",
+            "cv2",
+            "easyocr",
+            "mede.dicom_deidentification",
+            "mede.dicom_skullstrip_defacing",
+            "mede.text_detection",
+            "mede.wsi_deidentification",
+            "mede.twix_deidentification",
+        ]
+        sentinel = object()
+        previous = {name: sys.modules.get(name, sentinel) for name in optional_modules}
+        for name in optional_modules:
+            sys.modules.pop(name, None)
+
+        try:
+            with patch.object(sys, "argv", ["deidentify.py", "--help"]):
+                with self.assertRaises(SystemExit) as exit_context:
+                    deidentify.main()
+            self.assertEqual(exit_context.exception.code, 0)
+            for name in optional_modules:
+                self.assertNotIn(name, sys.modules)
+        finally:
+            for name, module in previous.items():
+                if module is sentinel:
+                    sys.modules.pop(name, None)
+                else:
+                    sys.modules[name] = module
 
     def test_invalid_profile_raises_system_exit(self):
         deidentify = self.deidentify
