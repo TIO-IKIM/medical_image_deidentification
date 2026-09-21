@@ -5,16 +5,20 @@ De-Identification of Medical Imaging Data: A Comprehensive Tool for Ensuring Pat
 Authors: Moritz Rempe & Lukas Heine
 """
 import argparse
-from mede.dicom_skullstrip_defacing import Inference
-from mede.dicom_deidentification import DicomDeidentifier
-from mede.text_detection import TextRemoval
-from mede.wsi_deidentification import WSIDeidentifier
-from mede.twix_deidentification import anonymize_twix
-from mede.rename import Rename
-import torch
 import logging
 
 logging.basicConfig(level=logging.INFO)
+
+
+def _configure_torch(processes: int) -> None:
+    """Configure PyTorch only when a torch-backed feature is requested."""
+    import torch
+
+    torch.backends.cudnn.benchmark = True
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    torch.autograd.set_detect_anomaly(True)
+    torch.set_num_threads(processes)
 
 
 def main():
@@ -131,18 +135,17 @@ def main():
         help="Which DICOM deidentification profile(s) to apply. (default None)",
     )
 
-    parser.parse_args()
     args = parser.parse_args()
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
-    torch.autograd.set_detect_anomaly(True)
-    torch.set_num_threads(args.processes)
+
+    if args.skull_strip or args.deface or args.text_removal:
+        _configure_torch(args.processes)
 
     _input = args.input
     _out = args.output
 
     if args.deidentification_profile is not None:
+        from mede.dicom_deidentification import DicomDeidentifier
+
         dicom_deidentifier = DicomDeidentifier(
             args.deidentification_profile,
             processes=args.processes,
@@ -157,9 +160,14 @@ def main():
         )
 
     if args.wsi:
+        from mede.wsi_deidentification import WSIDeidentifier
+
         wsi_deidentifier = WSIDeidentifier(verbose=args.verbose, out_path=args.output)
         wsi_deidentifier(_input)
         _input = _out
+
+    if args.skull_strip or args.deface:
+        from mede.dicom_skullstrip_defacing import Inference
 
     if args.skull_strip:
         skull_strip = Inference(
@@ -176,15 +184,21 @@ def main():
         _input = _out
 
     if args.twix:
+        from mede.twix_deidentification import anonymize_twix
+
         anonymize_twix(_input, args.output)
         _input = _out
 
     if args.text_removal:
+        from mede.text_detection import TextRemoval
+
         txt_removal = TextRemoval(output_path=args.output, verbose=args.verbose, interactive=args.refine)
         txt_removal(_input)
         _input = _out
 
     if args.rename:
+        from mede.rename import Rename
+
         rename = Rename(input_path=args.input, output_path=args.output)
         rename()
 
